@@ -1,19 +1,23 @@
 import os
+from pathlib import Path
+from typing import Dict, Any
 
-_currdir = os.path.dirname(os.path.dirname(__file__))
+# Use pathlib for more modern path handling
+_currdir = Path(__file__).parent.parent
 
-MANPAGEDIR = os.path.join(_currdir, 'manpages')
+MANPAGEDIR = _currdir / 'manpages'
 CLASSIFIER_CUTOFF = 0.7
-TOOLSDIR = os.path.join(_currdir, 'tools')
+TOOLSDIR = _currdir / 'tools'
 
-MAN2HTML = os.path.join(TOOLSDIR, 'w3mman2html.cgi')
+MAN2HTML = TOOLSDIR / 'w3mman2html.cgi'
 
 # host to pass into Flask's app.run.
-HOST_IP = os.getenv('HOST_IP', False)
+HOST_IP = os.getenv('HOST_IP', None)  # Use None instead of False for clarity
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost')
 DEBUG = True
 
-LOGGING_DICT = {
+# Type hint the logging configuration for better IDE support
+LOGGING_DICT: Dict[str, Any] = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
@@ -23,8 +27,8 @@ LOGGING_DICT = {
     },
     'handlers': {
         'console': {
-            'level' : 'INFO',
-            'class' : 'logging.StreamHandler',
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
             'formatter': 'standard',
         },
         'file': {

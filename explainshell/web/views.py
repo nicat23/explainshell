@@ -1,4 +1,4 @@
-import logging, itertools, urllib
+from urllib.parse import quote_plus, urlencode
 import markupsafe
 
 from flask import render_template, request, redirect
@@ -36,19 +36,19 @@ def explain():
                                helptext=helptext,
                                getargs=command)
 
-    except errors.ProgramDoesNotExist, e:
+    except errors.ProgramDoesNotExist as e:
         return render_template('errors/missingmanpage.html', title='missing man page', e=e)
-    except bashlex.errors.ParsingError, e:
+    except bashlex.errors.ParsingError as e:
         logger.warn('%r parsing error: %s', command, e.message)
         return render_template('errors/parsingerror.html', title='parsing error!', e=e)
-    except NotImplementedError, e:
+    except NotImplementedError as e:
         logger.warn('not implemented error trying to explain %r', command)
         msg = ("the parser doesn't support %r constructs in the command you tried. you may "
                "<a href='https://github.com/idank/explainshell/issues'>report a "
                "bug</a> to have this added, if one doesn't already exist.") % e.args[0]
 
         return render_template('errors/error.html', title='error!', message=msg)
-    except:
+    except Exception as e:
         logger.error('uncaught exception trying to explain %r', command, exc_info=True)
         msg = 'something went wrong... this was logged and will be checked'
         return render_template('errors/error.html', title='error!', message=msg)
@@ -71,7 +71,7 @@ def explainold(section, program):
         try:
             mp, suggestions = explainprogram(program, s)
             return render_template('options.html', mp=mp, suggestions=suggestions)
-        except errors.ProgramDoesNotExist, e:
+        except errors.ProgramDoesNotExist as e:
             return render_template('errors/missingmanpage.html', title='missing man page', e=e)
 
 def explainprogram(program, store):
@@ -186,7 +186,7 @@ def explaincommand(command, store):
             spaces = it.peek()['start'] - m['end']
         m['spaces'] = ' ' * spaces
 
-    helptext = sorted(texttoid.iteritems(), key=lambda (k, v): idstartpos[v])
+    helptext = sorted(texttoid.items(), key=lambda k_v: idstartpos[k_v[1]])
 
     return matches, helptext
 

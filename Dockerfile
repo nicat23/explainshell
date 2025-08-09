@@ -1,4 +1,4 @@
-FROM python:2.7
+FROM python:3.11
 
 RUN apt-get update \
   && apt-get install man-db -y \
@@ -7,7 +7,7 @@ RUN apt-get update \
 ADD ./requirements.txt /tmp/requirements.txt
 
 RUN pip install --upgrade pip \
-  && python --version \
+  && python3 --version \
   && pip install -r /tmp/requirements.txt \
   && rm -rf ~/.cache/pip/*
 
