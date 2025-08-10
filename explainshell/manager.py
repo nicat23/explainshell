@@ -1,26 +1,32 @@
-import sys, os, argparse, logging, glob
+import sys
+import os
+import argparse
+import logging
+import glob
+from typing import List, Tuple, Dict, Set, Optional, Any
 
 from explainshell import options, store, fixer, manpage, errors, util, config
 from explainshell.algo import classifier
 
 logger = logging.getLogger('explainshell.manager')
 
-class managerctx(object):
+class managerctx:
     def __init__(self, classifier, store, manpage):
         self.classifier = classifier
         self.store = store
         self.manpage = manpage
         self.name = manpage.name
 
-        self.classifiermanpage = None
-        self.optionsraw = None
-        self.optionsextracted = None
-        self.aliases = None
+        self.classifiermanpage: Optional[store.classifiermanpage] = None
+        self.optionsraw: Optional[Any] = None
+        self.optionsextracted: Optional[Any] = None
+        self.aliases: Optional[List[Tuple[str, int]]] = None
 
-class manager(object):
+class manager:
     '''the manager uses all parts of the system to read, classify, parse, extract
     and write a man page to the database'''
-    def __init__(self, dbhost, dbname, paths, overwrite=False, drop=False):
+    def __init__(self, dbhost: str, dbname: str, paths: Set[str], 
+                 overwrite: bool = False, drop: bool = False):
         self.paths = paths
         self.overwrite = overwrite
 
@@ -32,10 +38,10 @@ class manager(object):
         if drop:
             self.store.drop(True)
 
-    def ctx(self, m):
+    def ctx(self, m: manpage.manpage) -> managerctx:
         return managerctx(self.classifier, self.store, m)
 
-    def _read(self, ctx, frunner):
+    def _read(self, ctx: managerctx, frunner) -> None:
         frunner.pre_get_raw_manpage()
         ctx.manpage.read()
         ctx.manpage.parse()
@@ -45,27 +51,27 @@ class manager(object):
                 ctx.manpage.synopsis, ctx.manpage.paragraphs, list(ctx.manpage.aliases))
         frunner.post_parse_manpage()
 
-    def _classify(self, ctx, frunner):
+    def _classify(self, ctx: managerctx, frunner) -> None:
         ctx.classifiermanpage = store.classifiermanpage(ctx.name, ctx.manpage.paragraphs)
         frunner.pre_classify()
         _ = list(ctx.classifier.classify(ctx.classifiermanpage))
         frunner.post_classify()
 
-    def _extract(self, ctx, frunner):
+    def _extract(self, ctx: managerctx, frunner) -> None:
         options.extract(ctx.manpage)
         frunner.post_option_extraction()
         if not ctx.manpage.options:
             logger.warning("couldn't find any options for manpage %s", ctx.manpage.name)
 
-    def _write(self, ctx, frunner):
+    def _write(self, ctx: managerctx, frunner) -> store.manpage:
         frunner.pre_add_manpage()
         return ctx.store.addmanpage(ctx.manpage)
 
-    def _update(self, ctx, frunner):
+    def _update(self, ctx: managerctx, frunner) -> store.manpage:
         frunner.pre_add_manpage()
         return ctx.store.updatemanpage(ctx.manpage)
 
-    def process(self, ctx):
+    def process(self, ctx: managerctx) -> store.manpage:
         frunner = fixer.runner(ctx)
 
         self._read(ctx, frunner)
@@ -75,7 +81,7 @@ class manager(object):
         m = self._write(ctx, frunner)
         return m
 
-    def edit(self, m, paragraphs=None):
+    def edit(self, m: store.manpage, paragraphs: Optional[List[store.paragraph]] = None) -> store.manpage:
         ctx = self.ctx(m)
         frunner = fixer.runner(ctx)
 
@@ -88,7 +94,7 @@ class manager(object):
         m = self._update(ctx, frunner)
         return m
 
-    def run(self):
+    def run(self) -> Tuple[List[store.manpage], List[manpage.manpage]]:
         added = []
         exists = []
         for path in self.paths:
@@ -113,23 +119,23 @@ class manager(object):
                 m = self.process(ctx)
                 if m:
                     added.append(m)
-            except errors.EmptyManpage as e:
+            except errors.EmptyManpage as e:  # Python 3: use 'as' syntax
                 logger.error('manpage %r is empty!', e.args[0])
             except ValueError:
                 logger.fatal('uncaught exception when handling manpage %s', path)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:  # Python 3: catch all other exceptions explicitly
                 logger.fatal('uncaught exception when handling manpage %s', path)
                 raise
         if not added:
-            logger.warning('no manpages added')
+            logger.warning('no manpages added')  # Python 3: warn() -> warning()
         else:
             self.findmulticommands()
 
         return added, exists
 
-    def findmulticommands(self):
+    def findmulticommands(self) -> Tuple[List[Tuple[str, Any]], Dict[str, Any]]:
         manpages = {}
         potential = []
         for _id, m in self.store.names():
@@ -153,29 +159,28 @@ class manager(object):
             self.store.addmapping(src, dst, 1)
             logger.info('inserting mapping (multicommand) %s -> %s', src, dst)
 
+        # Python 3: dict.items() instead of iteritems()
         for multicommand, _id in multicommands.items():
             self.store.setmulticommand(_id)
             logger.info('making %r a multicommand', multicommand)
 
         return mappingstoadd, multicommands
 
-def main(files, dbname, dbhost, overwrite, drop, verify):
+def main(files: List[str], dbname: str, dbhost: str, overwrite: bool, 
+         drop: bool, verify: bool) -> int:
     if verify:
         s = store.store(dbname, dbhost)
-        ok = s.verify()
+        ok, unreachable, notfound = s.verify()  # Python 3: unpack all return values
         return 0 if ok else 1
 
     if drop:
-        try:
-            user_input = input('really drop db (y/n)? ').strip().lower()
-        except EOFError:
-            user_input = 'n'
-        if user_input != 'y':
+        # Python 3: input() instead of raw_input()
+        if input('really drop db (y/n)? ').strip().lower() != 'y':
             drop = False
         else:
-            overwrite = True # if we drop, no need to take overwrite into account
+            overwrite = True  # if we drop, no need to take overwrite into account
 
-    gzs = set()
+    gzs: Set[str] = set()
 
     for path in files:
         if os.path.isdir(path):
@@ -186,20 +191,27 @@ def main(files, dbname, dbhost, overwrite, drop, verify):
     m = manager(dbhost, dbname, gzs, overwrite, drop)
     added, exists = m.run()
     for mp in added:
-        print('successfully added %s' % mp.source)
+        print('successfully added %s' % mp.source)  # Python 3: print() function
     if exists:
-        print('these manpages already existed and werent overwritten: \n\n%s' % '\n'.join([m.path for m in exists]))
+        print('these manpages already existed and werent overwritten: \n\n%s' % 
+              '\n'.join([m.path for m in exists]))  # Python 3: print() function
+
+    return 0
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='process man pages and save them in the store')
     parser.add_argument('--log', type=str, default='ERROR', help='use log as the logger log level')
-    parser.add_argument('--overwrite', action='store_true', default=False, help='overwrite man pages that already exist in the store')
-    parser.add_argument('--drop', action='store_true', default=False, help='delete all existing man pages')
+    parser.add_argument('--overwrite', action='store_true', default=False, 
+                        help='overwrite man pages that already exist in the store')
+    parser.add_argument('--drop', action='store_true', default=False, 
+                        help='delete all existing man pages')
     parser.add_argument('--db', default='explainshell', help='mongo db name')
     parser.add_argument('--host', default=config.MONGO_URI, help='mongo host')
-    parser.add_argument('--verify', action='store_true', default=False, help='verify db integrity')
+    parser.add_argument('--verify', action='store_true', default=False, 
+                        help='verify db integrity')
     parser.add_argument('files', nargs='*')
 
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
-    sys.exit(main(args.files, args.db, args.host, args.overwrite, args.drop, args.verify))
+    exit_code = main(args.files, args.db, args.host, args.overwrite, args.drop, args.verify)
+    sys.exit(exit_code)
