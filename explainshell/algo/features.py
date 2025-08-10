@@ -30,7 +30,7 @@ def is_indented(paragraph):
     return paragraph != paragraph.lstrip()
 
 def par_length(paragraph):
-    return round(len(paragraph.strip()), -1) / 2
+    return int(round(len(paragraph.strip()), -1)) // 2
 
 def first_line_contains(paragraph, what):
     l = paragraph.splitlines()[0]
@@ -38,13 +38,13 @@ def first_line_contains(paragraph, what):
 
 def first_line_length(paragraph):
     first = extract_first_line(paragraph)
-    return round(len(first), -1) / 2
+    return int(round(len(first), -1)) // 2
 
 def first_line_word_count(paragraph):
     first = extract_first_line(paragraph)
     splitted = [s for s in first.split() if len(s) > 1]
 
-    return round(len(splitted), -1)
+    return int(round(len(splitted), -1))
 
 def is_good_section(paragraph):
     if not paragraph.section:
@@ -57,7 +57,7 @@ def is_good_section(paragraph):
     return False
 
 def word_count(text):
-    return round(len(re.findall(r'\w+', text)), -1)
+    return int(round(len(re.findall(r'\w+', text)), -1))
 
 def has_bold(html):
     return '<b>' in html

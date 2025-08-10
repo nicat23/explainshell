@@ -22,7 +22,7 @@ def consecutive(l, fn):
     ll = []
     try:
         while True:
-            x = it.next()
+            x = next(it)
             if fn(x):
                 ll.append(x)
             else:
@@ -43,8 +43,9 @@ def groupcontinuous(l, key=None):
     '''
     if key is None:
         key = lambda x: x
-    for k, g in itertools.groupby(enumerate(l), lambda (i, x): i-key(x)):
-        yield map(itemgetter(1), g)
+    # group by the difference between the enumerated index and the key
+    for _, g in itertools.groupby(enumerate(l), lambda idx_x: idx_x[0] - key(idx_x[1])):
+        yield [itemgetter(1)(t) for t in g]
 
 def toposorted(graph, parents):
     """
@@ -73,12 +74,12 @@ def toposorted(graph, parents):
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
-    return itertools.izip(a, b)
+    return zip(a, b)
 
 class peekable(object):
     '''
     >>> it = peekable(iter('abc'))
-    >>> it.index, it.peek(), it.index, it.peek(), it.next(), it.index, it.peek(), it.next(), it.next(), it.index
+    >>> it.index, it.peek(), it.index, it.peek(), next(it), it.index, it.peek(), next(it), next(it), it.index
     (0, 'a', 0, 'a', 'a', 1, 'b', 'b', 'c', 3)
     >>> it.peek()
     Traceback (most recent call last):
@@ -88,7 +89,7 @@ class peekable(object):
     Traceback (most recent call last):
       File "<stdin>", line 1, in ?
     StopIteration
-    >>> it.next()
+    >>> next(it)
     Traceback (most recent call last):
       File "<stdin>", line 1, in ?
     StopIteration
@@ -100,14 +101,18 @@ class peekable(object):
         self._idx = 0
     def __iter__(self):
         return self
-    def next(self):
+
+    def __next__(self):
         if self._peeked:
             self._peeked = False
             self._idx += 1
             return self._peekvalue
-        n = self.it.next()
+        n = next(self.it)
         self._idx += 1
         return n
+
+    # Backwards-compatible alias
+    next = __next__
     def hasnext(self):
         try:
             self.peek()
@@ -118,7 +123,7 @@ class peekable(object):
         if self._peeked:
             return self._peekvalue
         else:
-            self._peekvalue = self.it.next()
+            self._peekvalue = next(self.it)
             self._peeked = True
             return self._peekvalue
     @property

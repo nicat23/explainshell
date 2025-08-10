@@ -1,4 +1,5 @@
-import os, subprocess, re, logging, collections, urllib
+import os, subprocess, re, logging, collections
+import urllib.parse
 
 from explainshell import config, store, errors
 
@@ -124,10 +125,15 @@ def _parsetext(lines):
         for lookfor, replacewith in _replacements:
             l = re.sub(lookfor, replacewith, l)
         # confirm the line is valid utf8
-        lreplaced = l.decode('utf8', 'ignore').encode('utf8')
-        if lreplaced != l:
+        # Ensure valid UTF-8 by encoding/decoding safely in Python 3
+        if isinstance(l, bytes):
+            l_bytes = l
+        else:
+            l_bytes = l.encode('utf-8', 'ignore')
+        lreplaced = l_bytes.decode('utf-8', 'ignore').encode('utf-8')
+        if lreplaced != l_bytes:
             logger.error('line %r contains invalid utf8', l)
-            l = lreplaced
+            l = lreplaced.decode('utf-8', 'ignore')
             raise ValueError
         if l.startswith('<b>'): # section
             section = re.sub(_section, r'\1', l)
@@ -180,11 +186,16 @@ class manpage(object):
     def read(self):
         '''Read the content from a local manpage file and store it in usable formats
         on the class instance.'''
-        cmd = [config.MAN2HTML, urllib.urlencode({'local' : os.path.abspath(self.path)})]
+        cmd = [config.MAN2HTML, urllib.parse.urlencode({'local': os.path.abspath(self.path)})]
         logger.info('executing %r', ' '.join(cmd))
         self._text = subprocess.check_output(cmd, stderr=devnull, env=ENV)
+        if isinstance(self._text, bytes):
+            self._text = self._text.decode('utf-8', 'ignore')
         try:
-            self.synopsis = subprocess.check_output(['lexgrog', self.path], stderr=devnull).rstrip()
+            syn = subprocess.check_output(['lexgrog', self.path], stderr=devnull)
+            if isinstance(syn, bytes):
+                syn = syn.decode('utf-8', 'ignore')
+            self.synopsis = syn.rstrip()
         except subprocess.CalledProcessError:
             logger.error('failed to extract synopsis for %s', self.name)
 

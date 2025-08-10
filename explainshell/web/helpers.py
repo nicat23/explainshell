@@ -2,7 +2,8 @@ from explainshell import util
 
 def convertparagraphs(manpage):
     for p in manpage.paragraphs:
-        p.text = p.text.decode('utf-8')
+        if isinstance(p.text, bytes):
+            p.text = p.text.decode('utf-8', 'ignore')
     return manpage
 
 def suggestions(matches, command):

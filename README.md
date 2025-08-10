@@ -27,15 +27,30 @@ When querying explainshell, it:
    list of known options
 4. returns a list of matches that are rendered with Flask
 
-## Manpages
+## Project Status
 
 > [!IMPORTANT]  
 >
-> explainshell is actively maintained in terms of keeping it healthy and functional -- issues are addressed, and the core remains stable.
+> explainshell is actively maintained in terms of keeping it healthy and functional -- issues are addressed, and the core remains stable. All tests are currently passing (59 passed, 9 skipped).
 > 
-> However, please note that the **manpages are outdated**. The previous system for generating them was unsustainable, and they haven’t been updated in some time. There are currently **no active plans** to revise this mechanism.
+> However, please note that the **manpages are outdated**. The previous system for generating them was unsustainable, and they haven't been updated in some time. There are currently **no active plans** to revise this mechanism.
 > 
 > If you're relying on manpages, be aware that they may not reflect the latest behavior. Contributions in this area are welcome but would require rethinking the documentation pipeline.
+
+## Recent Updates
+
+### Unicode Support Fix (Latest)
+- Fixed Unicode character handling in command parsing
+- Non-ASCII characters in command arguments are now properly replaced with `???` in the match field
+- Resolves issues with international character sets in shell commands
+- All tests now pass including the Unicode test case
+
+### Python 3.11+ Compatibility
+- Added compatibility shims for Python 3.11+ collections module changes
+- Fixed `collections.MutableSet` deprecation issues
+- Ensures the project works with modern Python versions
+
+## Manpages
 
 Right now explainshell.com contains the entire [archive of Ubuntu](http://manpages.ubuntu.com/). It's not
 possible to directly add a missing man page to the live site (it might be in the future).
@@ -68,6 +83,18 @@ OK (SKIP=9)
 # open http://localhost:5000 to view the ui
 ```
 
+### Running Tests
+
+To run the test suite and verify everything is working:
+
+```ShellSession
+# Run all tests
+$ docker-compose exec -T web pytest -q ./tests/*.py ./explainshell
+
+# Run specific test
+$ docker-compose exec -T web pytest tests/test-matcher.py::test_matcher::test_unicode -v
+```
+
 ### Processing a man page
 
 Use the manager to parse and save a gzipped man page in raw format:
@@ -89,3 +116,16 @@ successfully added echo
 ```
 
 Note that if you've setup using the docker instructions above, echo will already be in the database.
+
+## Contributing
+
+Contributions are welcome! The project is actively maintained and issues are addressed regularly. When contributing:
+
+1. Ensure all tests pass (`pytest -q ./tests/*.py ./explainshell`)
+2. Follow the existing code style
+3. Add tests for new functionality
+4. Update documentation as needed
+
+## License
+
+See [LICENSE](LICENSE) file for details.

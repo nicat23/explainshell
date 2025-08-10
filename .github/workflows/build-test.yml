@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: actions/setup-python@v3
+    - uses: actions/setup-python@v5
       with:
-        python-version: "2.7"
+        python-version: "3.11"
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -36,7 +36,7 @@ jobs:
       uses: supercharge/mongodb-github-action@1.8.0
       with:
         mongodb-version: "5"
-    - name: Run nosetests
+    - name: Run tests
       run: |
         mongorestore dump/explainshell && mongorestore -d explainshell_tests dump/explainshell
         make tests

@@ -1,4 +1,16 @@
 import collections, logging, itertools
+try:
+    # Compatibility shim for Python 3.11+: provide removed aliases under collections
+    import collections as _collections
+    import collections.abc as _collections_abc
+    if not hasattr(_collections, 'MutableSet'):
+        _collections.MutableSet = _collections_abc.MutableSet
+    if not hasattr(_collections, 'Mapping'):
+        _collections.Mapping = _collections_abc.Mapping
+    if not hasattr(_collections, 'MutableMapping'):
+        _collections.MutableMapping = _collections_abc.MutableMapping
+except Exception:
+    pass
 
 import bashlex.parser
 import bashlex.ast
@@ -32,7 +44,14 @@ class matcher(bashlex.ast.nodevisitor):
     each token.
     '''
     def __init__(self, s, store):
-        self.s = s.encode('latin1', 'replace')
+        # Keep input as text for bashlex; it expects str not bytes in Py3
+        if isinstance(s, bytes):
+            try:
+                self.s = s.decode('latin1', 'replace')
+            except Exception:
+                self.s = s.decode('utf-8', 'ignore')
+        else:
+            self.s = s
         self.store = store
         self._prevoption = self._currentoption = None
         self.groups = [matchgroup('shell')]
@@ -88,7 +107,8 @@ class matcher(bashlex.ast.nodevisitor):
         return self._currentoption
 
     def findmanpages(self, prog):
-        prog = prog.decode('latin1')
+        if isinstance(prog, bytes):
+            prog = prog.decode('latin1')
         logger.info('looking up %r in store', prog)
         manpages = self.store.findmanpage(prog)
         logger.info('found %r in store, got: %r, using %r', prog, manpages, manpages[0])
@@ -261,7 +281,7 @@ class matcher(bashlex.ast.nodevisitor):
             # we consume this node here, pop it from parts so we
             # don't visit it again as an argument
             parts.pop(idxwordnode)
-        except errors.ProgramDoesNotExist, e:
+        except errors.ProgramDoesNotExist as e:
             if addgroup:
                 # add a group for this command, we'll mark it as unknown
                 # when visitword is called
@@ -547,7 +567,7 @@ class matcher(bashlex.ast.nodevisitor):
                 self.groups[1].manpage is None and not self.expansions):
                 raise self.groups[1].error
         else:
-            logger.warn('no AST generated for %r', self.s)
+            logger.warning('no AST generated for %r', self.s)
 
         def debugmatch():
             s = '\n'.join(['%d) %r = %r' % (i, self.s[m.start:m.end], m.text) for i, m in enumerate(self.allmatches)])
@@ -569,8 +589,21 @@ class matcher(bashlex.ast.nodevisitor):
                 for i, m in enumerate(group.results):
                     assert m.end <= len(self.s), '%d %d' % (m.end, len(self.s))
 
-                    portion = self.s[m.start:m.end].decode('latin1')
-                    group.results[i] = matchresult(m.start, m.end, m.text, portion)
+                    portion = self.s[m.start:m.end]
+                    # Replace Unicode characters with ??? for the match field
+                    try:
+                        # Try to encode as ASCII, replace non-ASCII with ???
+                        portion_ascii = portion.encode('ascii').decode('ascii')
+                    except UnicodeEncodeError:
+                        # If there are non-ASCII characters, replace them with ???
+                        portion_ascii = ''
+                        for char in portion:
+                            if ord(char) < 128:
+                                portion_ascii += char
+                            else:
+                                portion_ascii += '?'
+                    
+                    group.results[i] = matchresult(m.start, m.end, m.text, portion_ascii)
 
         logger.debug('%r matches:\n%s', self.s, debugmatch())
 
@@ -582,7 +615,7 @@ class matcher(bashlex.ast.nodevisitor):
     def _markunparsedunknown(self):
         '''the parser may leave a remainder at the end of the string if it doesn't
         match any of the rules, mark them as unknowns'''
-        parsed = [False]*len(self.s)
+        parsed = [False] * len(self.s)
 
         # go over all existing matches to see if we've covered the
         # current position

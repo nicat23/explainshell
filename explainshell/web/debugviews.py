@@ -1,6 +1,7 @@
 import logging
+import json
 
-from flask import render_template, request, abort, redirect, url_for, json
+from flask import render_template, request, abort, redirect, url_for
 
 from explainshell import manager, config, store
 from explainshell.web import app, helpers
