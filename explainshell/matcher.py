@@ -101,7 +101,7 @@ class matcher(bashlex.ast.nodevisitor):
         return None
 
     def findmanpages(self, prog: str):
-        prog = prog.decode('latin1')
+        
         logger.info('looking up %r in store', prog)
         manpages = self.store.findmanpage(prog)
         logger.info('found %r in store, got: %r, using %r', prog, manpages, manpages[0])
@@ -551,9 +551,9 @@ class matcher(bashlex.ast.nodevisitor):
         logger.info('matching string %r', self.s)
 
         # limit recursive parsing to a depth of 1
-        self.ast = bashlex.parser.parsesingle(self.s, expansionlimit=1,
+        self.ast = bashlex.parser.parsesingle(self.s.decode('latin1'), expansionlimit=1,
                                               strictmode=False)
-        if self.ast:
+        if self.ast and not isinstance(self.ast, str):
             self.visit(self.ast)
             assert len(self.groupstack) == 1, 'groupstack should contain only shell group after matching'
 
@@ -564,6 +564,7 @@ class matcher(bashlex.ast.nodevisitor):
                 raise self.groups[1].error
         else:
             logger.warning('no AST generated for %r', self.s)
+            self.ast = None
 
         def debugmatch() -> str:
             s = '\n'.join(['%d) %r = %r' % (i, self.s[m.start:m.end], m.text) for i, m in enumerate(self.allmatches)])
@@ -586,19 +587,8 @@ class matcher(bashlex.ast.nodevisitor):
                     assert m.end <= len(self.s), '%d %d' % (m.end, len(self.s))
 
                     portion = self.s[m.start:m.end]
-                    # Replace Unicode characters with ??? for the match field
-                    try:
-                        # Try to encode as ASCII, replace non-ASCII with ???
-                        portion_ascii = portion.encode('ascii').decode('ascii')
-                    except UnicodeEncodeError:
-                        # If there are non-ASCII characters, replace them with ???
-                        portion_ascii = ''
-                        for char in portion:
-                            if ord(char) < 128:
-                                portion_ascii += char
-                            else:
-                                portion_ascii += '?'
-                    
+                    # Replace non-ASCII characters with '?' for the match field
+                    portion_ascii = ''.join(chr(b) if b < 128 else '?' for b in portion)
                     group.results[i] = matchresult(m.start, m.end, m.text, portion_ascii)
 
         logger.debug('%r matches:\n%s', self.s, debugmatch())
@@ -628,7 +618,7 @@ class matcher(bashlex.ast.nodevisitor):
             # the parser ignores comments but we can use a trick to see if this
             # starts a comment and is beyond the ending index of the parsed
             # portion of the input
-            if (not self.ast or i > self.ast.pos[1]) and c == ord('#'):  # Python 3: compare with ord('#')
+            if (not self.ast or (self.ast and i > self.ast.pos[1])) and c == ord('#'):  # Python 3: compare with ord('#')
                 comment = matchresult(i, len(parsed), helpconstants.COMMENT, None)
                 self.groups[0].results.append(comment)
                 break

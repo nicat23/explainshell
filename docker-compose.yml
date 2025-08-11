@@ -1,8 +1,12 @@
 services:
   db:
     image: mongo
+    container_name: db
+    volumes:
+      - ../data:/data/db
   web:
     build: .
+    container_name: web
     command: make serve
     environment:
       - MONGO_URI=mongodb://db

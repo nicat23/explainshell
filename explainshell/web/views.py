@@ -1,5 +1,6 @@
 from urllib.parse import quote_plus, urlencode
 import markupsafe
+import itertools
 import logging
 
 from flask import render_template, request, redirect
@@ -177,7 +178,7 @@ def explaincommand(command, store):
 
     it = util.peekable(iter(matches))
     while it.hasnext():
-        m = it.next()
+        m = next(it)
         spaces = 0
         if it.hasnext():
             spaces = it.peek()['start'] - m['end']
@@ -250,7 +251,7 @@ def _substitutionmarkup(cmd):
     >>> _substitutionmarkup('cat <&3')
     '<a href="/explain?cmd=cat+%3C%263" title="Zoom in to nested command">cat <&3</a>'
     '''
-    encoded = urllib.parse.urlencode({'cmd': cmd})
+    encoded = urlencode({'cmd': cmd})
     return ('<a href="/explain?{query}" title="Zoom in to nested command">{cmd}'
             '</a>').format(cmd=cmd, query=encoded)
 

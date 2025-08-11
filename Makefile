@@ -2,6 +2,6 @@ tests:
 	pytest -q
 
 serve:
-	python runserver.py
+	python3 runserver.py
 
 .PHONY: tests
