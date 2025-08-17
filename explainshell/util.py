@@ -1,8 +1,9 @@
 import itertools
 from operator import itemgetter
 
+
 def consecutive(l, fn):
-    '''yield consecutive items from l that fn returns True for them
+    """yield consecutive items from l that fn returns True for them
 
     >>> even = lambda x: x % 2 == 0
     >>> list(consecutive([], even))
@@ -17,12 +18,12 @@ def consecutive(l, fn):
     [[1], [2, 4]]
     >>> list(consecutive([1, 2, 4, 5, 7, 8, 10], even))
     [[1], [2, 4], [5], [7], [8, 10]]
-    '''
+    """
     it = iter(l)
     ll = []
     try:
         while True:
-            x = it.next()
+            x = next(it)
             if fn(x):
                 ll.append(x)
             else:
@@ -34,17 +35,19 @@ def consecutive(l, fn):
         if ll:
             yield ll
 
+
 def groupcontinuous(l, key=None):
-    '''
+    """
     >>> list(groupcontinuous([1, 2, 4, 5, 7, 8, 10]))
     [[1, 2], [4, 5], [7, 8], [10]]
     >>> list(groupcontinuous(range(5)))
     [[0, 1, 2, 3, 4]]
-    '''
+    """
     if key is None:
         key = lambda x: x
-    for k, g in itertools.groupby(enumerate(l), lambda (i, x): i-key(x)):
-        yield map(itemgetter(1), g)
+    for k, g in itertools.groupby(enumerate(l), lambda i_x: i_x[0] - key(i_x[1])):
+        yield list(map(itemgetter(1), g))
+
 
 def toposorted(graph, parents):
     """
@@ -57,26 +60,30 @@ def toposorted(graph, parents):
     """
     result = []
     used = set()
+
     def use(v, top):
         if id(v) in used:
             return
         for parent in parents(v):
             if parent is top:
-                raise ValueError('graph is cyclical', graph)
+                raise ValueError("graph is cyclical", graph)
             use(parent, v)
         used.add(id(v))
         result.append(v)
+
     for v in graph:
         use(v, v)
     return result
 
+
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
-    return itertools.izip(a, b)
+    return zip(a, b)
+
 
 class peekable(object):
-    '''
+    """
     >>> it = peekable(iter('abc'))
     >>> it.index, it.peek(), it.index, it.peek(), it.next(), it.index, it.peek(), it.next(), it.next(), it.index
     (0, 'a', 0, 'a', 'a', 1, 'b', 'b', 'c', 3)
@@ -92,44 +99,53 @@ class peekable(object):
     Traceback (most recent call last):
       File "<stdin>", line 1, in ?
     StopIteration
-    '''
+    """
+
     def __init__(self, it):
         self.it = it
         self._peeked = False
         self._peekvalue = None
         self._idx = 0
+
     def __iter__(self):
         return self
+
     def next(self):
         if self._peeked:
             self._peeked = False
             self._idx += 1
             return self._peekvalue
-        n = self.it.next()
+        n = next(self.it)
         self._idx += 1
         return n
+
+    # Python 3 compatibility
+    __next__ = next
+
     def hasnext(self):
         try:
             self.peek()
             return True
         except StopIteration:
             return False
+
     def peek(self):
-        if self._peeked:
-            return self._peekvalue
-        else:
-            self._peekvalue = self.it.next()
+        if not self._peeked:
+            self._peekvalue = next(self.it)
             self._peeked = True
-            return self._peekvalue
+        return self._peekvalue
+
     @property
     def index(self):
-        '''return the index of the next item returned by next()'''
+        """return the index of the next item returned by next()"""
         return self._idx
 
+
 def namesection(path):
-    assert '.gz' not in path
-    name, section = path.rsplit('.', 1)
+    assert ".gz" not in path
+    name, section = path.rsplit(".", 1)
     return name, section
+
 
 class propertycache(object):
     def __init__(self, func):

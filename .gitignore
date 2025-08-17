@@ -3,3 +3,11 @@
 .coverage
 .vagrant
 application.log
+.venv*/
+dev/
+.env
+*.bak
+.pyc
+.amazonq/
+.vscode
+.vscode/*

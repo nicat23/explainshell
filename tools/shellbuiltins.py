@@ -8,7 +8,6 @@ writing these down and adding them.'''
 
 import textwrap
 from explainshell import store, config
-
 sp = store.paragraph
 so = store.option
 sm = store.manpage
@@ -19,8 +18,14 @@ def _add(names, synopsis, options):
     name = names[0]
     # hack: fake a source man page (this breaks the outgoing links from
     # explainshell, oh well)
-    names.append('bash-%s' % name)
-    BUILTINS[name] = sm('bash-%s.1.gz' % name, name, synopsis, options, [(name, 20) for name in names])
+    names.append(f'bash-{name}')
+    BUILTINS[name] = sm(
+        f'bash-{name}.1.gz',
+        name,
+        synopsis,
+        options,
+        [(name, 20) for name in names],
+    )
 
 _add([':'], 'the command does nothing', [so(sp(0, '''No  effect;  the command does nothing beyond expanding arguments and performing any specified redirections.  A zero
 exit code  is returned.''', '', True), [], [], False, True, False)])
@@ -68,10 +73,11 @@ line.   If <u>filename</u>  is  supplied,  it  is  used as the name of the histo
      so(sp(8, textwrap.dedent('''              <b>-s</b>     Store  the  <u>args</u>  in  the history list as a single entry.  The last command in the history list  is
                      removed  before the <u>args</u> are added.'''), '', True), ['-s'], [], 'arg', False, False)])
 
+
 if __name__ == '__main__':
     import logging.config
     logging.config.dictConfig(config.LOGGING_DICT)
 
     s = store.store('explainshell', config.MONGO_URI)
-    for m in BUILTINS.itervalues():
+    for m in BUILTINS.values():
         s.addmanpage(m)

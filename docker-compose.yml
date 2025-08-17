@@ -1,16 +1,25 @@
-version: '2'
 services:
   db:
     image: mongo
+    container_name: db
+    volumes:
+      - ../data:/data/db
+    ports:
+      - "27017:27017"
+
   web:
-    build: .
-    command: make serve
+    image: explainshell
+    container_name: web
+    #command: make serve
     environment:
       - MONGO_URI=mongodb://db
       - HOST_IP=0.0.0.0
     volumes:
-      - .:/opt/webapp
+      - /usr/share/man:/opt/webapp/manpages
+    #volumes:
+      - .:/opt/webapp:rw
     ports:
       - "5000:5000"
     depends_on:
       - db
+    user: "0:0"
