@@ -3,3 +3,6 @@
 .coverage
 .vagrant
 application.log
+.venv*/
+dev/
+.env

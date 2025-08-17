@@ -1,0 +1,8 @@
+docker-compose.yml
+PR_DESCRIPTION.MD
+dev/
+.venv/
+.venv2/
+.pytest_cache/
+.github/
+.env
