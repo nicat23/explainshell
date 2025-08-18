@@ -5,6 +5,13 @@ serve:
 test:
 	pytest tests/ explainshell/ --doctest-modules --cov=explainshell
 
+lint:
+	flake8 explainshell/ tests/
+	black --check explainshell/ tests/
+
+format:
+	black explainshell/ tests/
+
 # Docker commands
 build:
 	docker-compose build
@@ -20,7 +27,20 @@ logs:
 
 restart:
 	docker-compose restart
-	
+
+# Production commands
+prod-build:
+	docker-compose -f docker-compose.prod.yml build
+
+prod-up:
+	docker-compose -f docker-compose.prod.yml up -d
+
+prod-down:
+	docker-compose -f docker-compose.prod.yml down
+
+prod-logs:
+	docker-compose -f docker-compose.prod.yml logs -f
+
 # Database commands
 db-dump:
 	docker-compose exec db mongodump --archive --gzip --db explainshell
@@ -36,14 +56,10 @@ clean:
 clean-all:
 	docker system prune -af
 	docker volume prune -f
-
 clean-app:
 	find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete
-	rm .pytest_cache/ -rf
-	rm -rf .mypy_cache/
-	rm .coverage
+# Security scan
+security-scan:
+	docker run --rm -v $(PWD):/app -w /app securecodewarrior/docker-security-scan
 
-# Default
-
-
-.PHONY: serve test build up down logs restart db-dump db-restore clean clean-all
+.PHONY: serve test lint format build up down logs restart prod-build prod-up prod-down prod-logs db-dump db-restore clean clean-all security-scan

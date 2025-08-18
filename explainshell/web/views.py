@@ -1,4 +1,5 @@
-import logging, itertools, urllib
+from __future__ import absolute_import
+import logging, itertools, six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
 import markupsafe
 
 from flask import render_template, request, redirect
@@ -7,72 +8,87 @@ import bashlex.errors
 
 from explainshell import matcher, errors, util, store, config
 from explainshell.web import app, helpers
+import six
+from six.moves import range
 
 logger = logging.getLogger(__name__)
 
-@app.route('/')
+
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/about')
+
+@app.route("/about")
 def about():
-    return render_template('about.html')
+    return render_template("about.html")
 
-@app.route('/explain')
+
+@app.route("/explain")
 def explain():
-    if 'cmd' not in request.args or not request.args['cmd'].strip():
-        return redirect('/')
-    command = request.args['cmd'].strip()
-    command = command[:1000] # trim commands longer than 1000 characters
-    if '\n' in command:
-        return render_template('errors/error.html', title='parsing error!',
-                               message='no newlines please')
+    if "cmd" not in request.args or not request.args["cmd"].strip():
+        return redirect("/")
+    command = request.args["cmd"].strip()
+    command = command[:1000]  # trim commands longer than 1000 characters
+    if "\n" in command:
+        return render_template(
+            "errors/error.html", title="parsing error!", message="no newlines please"
+        )
 
-    s = store.store('explainshell', config.MONGO_URI)
+    s = store.store("explainshell", config.MONGO_URI)
     try:
         matches, helptext = explaincommand(command, s)
-        return render_template('explain.html',
-                               matches=matches,
-                               helptext=helptext,
-                               getargs=command)
+        return render_template(
+            "explain.html", matches=matches, helptext=helptext, getargs=command
+        )
 
-    except errors.ProgramDoesNotExist, e:
-        return render_template('errors/missingmanpage.html', title='missing man page', e=e)
-    except bashlex.errors.ParsingError, e:
-        logger.warn('%r parsing error: %s', command, e.message)
-        return render_template('errors/parsingerror.html', title='parsing error!', e=e)
-    except NotImplementedError, e:
-        logger.warn('not implemented error trying to explain %r', command)
-        msg = ("the parser doesn't support %r constructs in the command you tried. you may "
-               "<a href='https://github.com/idank/explainshell/issues'>report a "
-               "bug</a> to have this added, if one doesn't already exist.") % e.args[0]
+    except errors.ProgramDoesNotExist as e:
+        return render_template(
+            "errors/missingmanpage.html", title="missing man page", e=e
+        )
+    except bashlex.errors.ParsingError as e:
+        logger.warn("%r parsing error: %s", command, e.message)
+        return render_template("errors/parsingerror.html", title="parsing error!", e=e)
+    except NotImplementedError as e:
+        logger.warn("not implemented error trying to explain %r", command)
+        msg = (
+            "the parser doesn't support %r constructs in the command you tried. you may "
+            "<a href='https://github.com/idank/explainshell/issues'>report a "
+            "bug</a> to have this added, if one doesn't already exist."
+        ) % e.args[0]
 
-        return render_template('errors/error.html', title='error!', message=msg)
+        return render_template("errors/error.html", title="error!", message=msg)
     except:
-        logger.error('uncaught exception trying to explain %r', command, exc_info=True)
-        msg = 'something went wrong... this was logged and will be checked'
-        return render_template('errors/error.html', title='error!', message=msg)
+        logger.error("uncaught exception trying to explain %r", command, exc_info=True)
+        msg = "something went wrong... this was logged and will be checked"
+        return render_template("errors/error.html", title="error!", message=msg)
 
-@app.route('/explain/<program>', defaults={'section' : None})
-@app.route('/explain/<section>/<program>')
+
+@app.route("/explain/<program>", defaults={"section": None})
+@app.route("/explain/<section>/<program>")
 def explainold(section, program):
-    logger.info('/explain section=%r program=%r', section, program)
+    logger.info("/explain section=%r program=%r", section, program)
 
-    s = store.store('explainshell', config.MONGO_URI)
+    s = store.store("explainshell", config.MONGO_URI)
     if section is not None:
-        program = '%s.%s' % (program, section)
+        program = "%s.%s" % (program, section)
 
     # keep links to old urls alive
-    if 'args' in request.args:
-        args = request.args['args']
-        command = '%s %s' % (program, args)
-        return redirect('/explain?cmd=%s' % urllib.quote_plus(command), 301)
+    if "args" in request.args:
+        args = request.args["args"]
+        command = "%s %s" % (program, args)
+        return redirect(
+            "/explain?cmd=%s" % six.moves.urllib.parse.quote_plus(command), 301
+        )
     else:
         try:
             mp, suggestions = explainprogram(program, s)
-            return render_template('options.html', mp=mp, suggestions=suggestions)
-        except errors.ProgramDoesNotExist, e:
-            return render_template('errors/missingmanpage.html', title='missing man page', e=e)
+            return render_template("options.html", mp=mp, suggestions=suggestions)
+        except errors.ProgramDoesNotExist as e:
+            return render_template(
+                "errors/missingmanpage.html", title="missing man page", e=e
+            )
+
 
 def explainprogram(program, store):
     mps = store.findmanpage(program)
@@ -80,26 +96,37 @@ def explainprogram(program, store):
     program = mp.namesection
 
     synopsis = mp.synopsis
-    if synopsis:
-        synopsis = synopsis.decode('utf-8')
+    # synopsis is already a string in Python 3
 
-    mp = {'source' : mp.source[:-3],
-          'section' : mp.section,
-          'program' : program,
-          'synopsis' : synopsis,
-          'options' : [o.text.decode('utf-8') for o in mp.options]}
+    mp = {
+        "source": mp.source[:-3],
+        "section": mp.section,
+        "program": program,
+        "synopsis": synopsis,
+        "options": [o.text for o in mp.options],
+    }
 
     suggestions = []
     for othermp in mps:
-        d = {'text' : othermp.namesection,
-             'link' : '%s/%s' % (othermp.section, othermp.name)}
+        d = {
+            "text": othermp.namesection,
+            "link": "%s/%s" % (othermp.section, othermp.name),
+        }
         suggestions.append(d)
-    logger.info('suggestions: %s', suggestions)
+    logger.info("suggestions: %s", suggestions)
     return mp, suggestions
 
+
 def _makematch(start, end, match, commandclass, helpclass):
-    return {'match' : match, 'start' : start, 'end' : end, 'spaces' : '',
-            'commandclass' : commandclass, 'helpclass' : helpclass}
+    return {
+        "match": match,
+        "start": start,
+        "end": end,
+        "spaces": "",
+        "commandclass": commandclass,
+        "helpclass": helpclass,
+    }
+
 
 def explaincommand(command, store):
     matcher_ = matcher.matcher(command, store)
@@ -122,16 +149,17 @@ def explaincommand(command, store):
     l = []
     for m in shellgroup.results:
         commandclass = shellgroup.name
-        helpclass = 'help-%d' % len(texttoid)
+        helpclass = "help-%d" % len(texttoid)
         text = m.text
         if text:
-            text = text.decode('utf-8')
+            # text is already a string in Python 3
+            pass
             helpclass = texttoid.setdefault(text, helpclass)
         else:
             # unknowns in the shell group are possible when our parser left
             # an unparsed remainder, see matcher._markunparsedunknown
-            commandclass += ' unknown'
-            helpclass = ''
+            commandclass += " unknown"
+            helpclass = ""
         if helpclass:
             idstartpos.setdefault(helpclass, m.start)
 
@@ -145,14 +173,15 @@ def explaincommand(command, store):
         l = []
         for m in commandgroup.results:
             commandclass = commandgroup.name
-            helpclass = 'help-%d' % len(texttoid)
+            helpclass = "help-%d" % len(texttoid)
             text = m.text
             if text:
-                text = text.decode('utf-8')
+                # text is already a string in Python 3
+                pass
                 helpclass = texttoid.setdefault(text, helpclass)
             else:
-                commandclass += ' unknown'
-                helpclass = ''
+                commandclass += " unknown"
+                helpclass = ""
             if helpclass:
                 idstartpos.setdefault(helpclass, m.start)
 
@@ -162,37 +191,38 @@ def explaincommand(command, store):
             l.append(d)
 
         d = l[0]
-        d['commandclass'] += ' simplecommandstart'
+        d["commandclass"] += " simplecommandstart"
         if commandgroup.manpage:
-            d['name'] = commandgroup.manpage.name
-            d['section'] = commandgroup.manpage.section
-            if '.' not in d['match']:
-                d['match'] = '%s(%s)' % (d['match'], d['section'])
-            d['suggestions'] = commandgroup.suggestions
-            d['source'] = commandgroup.manpage.source[:-5]
+            d["name"] = commandgroup.manpage.name
+            d["section"] = commandgroup.manpage.section
+            if "." not in d["match"]:
+                d["match"] = "%s(%s)" % (d["match"], d["section"])
+            d["suggestions"] = commandgroup.suggestions
+            d["source"] = commandgroup.manpage.source[:-5]
         matches.append(l)
 
     matches = list(itertools.chain.from_iterable(matches))
     helpers.suggestions(matches, command)
 
     # _checkoverlaps(matcher_.s, matches)
-    matches.sort(key=lambda d: d['start'])
+    matches.sort(key=lambda d: d["start"])
 
     it = util.peekable(iter(matches))
     while it.hasnext():
-        m = it.next()
+        m = next(it)
         spaces = 0
         if it.hasnext():
-            spaces = it.peek()['start'] - m['end']
-        m['spaces'] = ' ' * spaces
+            spaces = it.peek()["start"] - m["end"]
+        m["spaces"] = " " * spaces
 
-    helptext = sorted(texttoid.iteritems(), key=lambda (k, v): idstartpos[v])
+    helptext = sorted(six.iteritems(texttoid), key=lambda k_v: idstartpos[k_v[1]])
 
     return matches, helptext
 
+
 def formatmatch(d, m, expansions):
-    '''populate the match field in d by escaping m.match and generating
-    links to any command/process substitutions'''
+    """populate the match field in d by escaping m.match and generating
+    links to any command/process substitutions"""
 
     # save us some work later: do any expansions overlap
     # the current match?
@@ -205,15 +235,15 @@ def formatmatch(d, m, expansions):
 
     # if not, just escape the current match
     if not hassubsinmatch:
-        d['match'] = markupsafe.escape(m.match)
+        d["match"] = markupsafe.escape(m.match)
         return
 
     # used in es.js
-    d['commandclass'] += ' hasexpansion'
+    d["commandclass"] += " hasexpansion"
 
     # go over the expansions, wrapping them with a link; leave everything else
     # untouched
-    expandedmatch = ''
+    expandedmatch = ""
     i = 0
     for start, end, kind in expansions:
         if start >= m.end:
@@ -224,43 +254,50 @@ def formatmatch(d, m, expansions):
         if i < relativestart:
             for j in range(i, relativestart):
                 if m.match[j].isspace():
-                    expandedmatch += markupsafe.Markup('&nbsp;')
+                    expandedmatch += markupsafe.Markup("&nbsp;")
                 else:
                     expandedmatch += markupsafe.escape(m.match[j])
             i = relativestart + 1
         if m.start <= start and end <= m.end:
             s = m.match[relativestart:relativeend]
 
-            if kind == 'substitution':
+            if kind == "substitution":
                 content = markupsafe.Markup(_substitutionmarkup(s))
             else:
                 content = s
 
             expandedmatch += markupsafe.Markup(
-                    '<span class="expansion-{0}">{1}</span>').format(kind, content)
+                '<span class="expansion-{0}">{1}</span>'
+            ).format(kind, content)
             i = relativeend
 
     if i < len(m.match):
         expandedmatch += markupsafe.escape(m.match[i:])
 
     assert expandedmatch
-    d['match'] = expandedmatch
+    d["match"] = expandedmatch
+
 
 def _substitutionmarkup(cmd):
-    '''
+    """
     >>> _substitutionmarkup('foo')
     '<a href="/explain?cmd=foo" title="Zoom in to nested command">foo</a>'
     >>> _substitutionmarkup('cat <&3')
     '<a href="/explain?cmd=cat+%3C%263" title="Zoom in to nested command">cat <&3</a>'
-    '''
-    encoded = urllib.urlencode({'cmd': cmd})
-    return ('<a href="/explain?{query}" title="Zoom in to nested command">{cmd}'
-            '</a>').format(cmd=cmd, query=encoded)
+    """
+    encoded = six.moves.urllib.parse.urlencode({"cmd": cmd})
+    return (
+        '<a href="/explain?{query}" title="Zoom in to nested command">{cmd}' "</a>"
+    ).format(cmd=cmd, query=encoded)
+
 
 def _checkoverlaps(s, matches):
-    explained = [None]*len(s)
+    explained = [None] * len(s)
     for d in matches:
-        for i in range(d['start'], d['end']):
+        for i in range(d["start"], d["end"]):
             if explained[i]:
-                raise RuntimeError("explained overlap for group %s at %d with %s" % (d, i, explained[i]))
+                raise RuntimeError(
+                    "explained overlap for group %s at %d with %s"
+                    % (d, i, explained[i])
+                )
             explained[i] = d

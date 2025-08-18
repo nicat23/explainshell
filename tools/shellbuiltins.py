@@ -6,8 +6,10 @@ unfortunately the bash section for builtins isn't written in a way
 explainshell can understannd, so we have to resort to manually
 writing these down and adding them.'''
 
+from __future__ import absolute_import
 import textwrap
 from explainshell import store, config
+import six
 
 sp = store.paragraph
 so = store.option
@@ -73,5 +75,5 @@ if __name__ == '__main__':
     logging.config.dictConfig(config.LOGGING_DICT)
 
     s = store.store('explainshell', config.MONGO_URI)
-    for m in BUILTINS.itervalues():
+    for m in six.itervalues(BUILTINS):
         s.addmanpage(m)

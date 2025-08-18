@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from explainshell import config
 from explainshell.web import app
 
