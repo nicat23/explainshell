@@ -43,7 +43,12 @@ clean-app:
 	rm -rf .mypy_cache/
 	rm .coverage
 
+load_data:
+	curl -L -o /tmp/dump.gz https://github.com/idank/explainshell/releases/download/db-dump/dump.gz
+	docker compose exec -T db mongorestore --archive --gzip < /tmp/dump.gz
+	rm /tmp/dump.gz
+
 # Default
 
 
-.PHONY: serve test build up down logs restart db-dump db-restore clean clean-all
+.PHONY: serve test build up down logs restart db-dump db-restore clean clean-all clean-app load_data

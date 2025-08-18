@@ -157,7 +157,7 @@ HERE_DOCUMENTS = textwrap.dedent(
        <u>word</u>.   If  any  characters in <u>word</u> are quoted, the <u>delimiter</u> is the result of quote removal on <u>word</u>, and
        the lines in the here-document are not expanded.  If <u>word</u> is unquoted, all lines of the here-document are
        subjected  to  parameter  expansion, command substitution, and arithmetic expansion.  In the latter case,
-       the character sequence <b>\&lt;newline&gt;</b> is ignored, and <b>\</b> must be used to quote the characters <b>\</b>, <b>$</b>, and <b>`</b>.
+       the character sequence <b>\&lt;newline&gt;</b> is ignored, and <b>\\</b> must be used to quote the characters <b>\\</b>, <b>$</b>, and <b>`</b>.
 
        If the redirection operator is <b>&lt;&lt;-</b>, then all leading tab characters are stripped from input lines and the
        line  containing  <u>delimiter</u>.  This allows here-documents within shell scripts to be indented in a natural
