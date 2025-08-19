@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - main
+      - original
 
 permissions:
   packages: write
