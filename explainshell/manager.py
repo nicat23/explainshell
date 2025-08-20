@@ -1,11 +1,11 @@
 from __future__ import absolute_import
 from __future__ import print_function
+import contextlib
 import sys, os, argparse, logging, glob
 
 from explainshell import options, store, fixer, manpage, errors, util, config
 from explainshell.algo import classifier
-import six
-from six.moves import input
+# Python 3 only: use built-in input
 
 logger = logging.getLogger("explainshell.manager")
 
@@ -69,7 +69,7 @@ class manager(object):
         options.extract(ctx.manpage)
         frunner.post_option_extraction()
         if not ctx.manpage.options:
-            logger.warn("couldn't find any options for manpage %s", ctx.manpage.name)
+            logger.warning("couldn't find any options for manpage %s", ctx.manpage.name)
 
     def _write(self, ctx, frunner):
         frunner.pre_add_manpage()
@@ -86,8 +86,7 @@ class manager(object):
         self._classify(ctx, frunner)
         self._extract(ctx, frunner)
 
-        m = self._write(ctx, frunner)
-        return m
+        return self._write(ctx, frunner)
 
     def edit(self, m, paragraphs=None):
         ctx = self.ctx(m)
@@ -109,10 +108,9 @@ class manager(object):
             try:
                 m = manpage.manpage(path)
                 logger.info("handling manpage %s (from %s)", m.name, path)
-                try:
+                with contextlib.suppress(errors.ProgramDoesNotExist):
                     mps = self.store.findmanpage(m.shortpath[:-3])
-                    mps = [mp for mp in mps if m.shortpath == mp.source]
-                    if mps:
+                    if mps := [mp for mp in mps if m.shortpath == mp.source]:
                         assert len(mps) == 1
                         mp = mps[0]
                         if not self.overwrite or mp.updated:
@@ -122,13 +120,9 @@ class manager(object):
                             )
                             exists.append(m)
                             continue
-                except errors.ProgramDoesNotExist:
-                    pass
-
                 # the manpage is not in the data store; process and add it
                 ctx = self.ctx(m)
-                m = self.process(ctx)
-                if m:
+                if m := self.process(ctx):
                     added.append(m)
             except errors.EmptyManpage as e:
                 logger.error("manpage %r is empty!", e.args[0])
@@ -140,7 +134,7 @@ class manager(object):
                 logger.fatal("uncaught exception when handling manpage %s", path)
                 raise
         if not added:
-            logger.warn("no manpages added")
+            logger.warning("no manpages added")
         else:
             self.findmulticommands()
 
@@ -155,7 +149,7 @@ class manager(object):
             else:
                 manpages[m] = _id
 
-        mappings = set([x[0] for x in self.store.mappings()])
+        mappings = {x[0] for x in self.store.mappings()}
         mappingstoadd = []
         multicommands = {}
 
@@ -170,7 +164,7 @@ class manager(object):
             self.store.addmapping(src, dst, 1)
             logger.info("inserting mapping (multicommand) %s -> %s", src, dst)
 
-        for multicommand, _id in six.iteritems(multicommands):
+        for multicommand, _id in multicommands.items():
             self.store.setmulticommand(_id)
             logger.info("making %r a multicommand", multicommand)
 
@@ -180,7 +174,7 @@ class manager(object):
 def main(files, dbname, dbhost, overwrite, drop, verify):
     if verify:
         s = store.store(dbname, dbhost)
-        ok = s.verify()
+        ok, unreachable, notfound = s.verify()
         return 0 if ok else 1
 
     if drop:
@@ -202,7 +196,7 @@ def main(files, dbname, dbhost, overwrite, drop, verify):
     m = manager(dbhost, dbname, gzs, overwrite, drop)
     added, exists = m.run()
     for mp in added:
-        print("successfully added %s" % mp.source)
+        print(f"successfully added {mp.source}")
     if exists:
         print(
             "these manpages already existed and werent overwritten: \n\n%s"

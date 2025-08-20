@@ -5,31 +5,31 @@ class TestOptionsBasic(unittest.TestCase):
     def test_options_regex_patterns(self):
         # Test regex patterns that don't require store
         try:
-            from explainshell.options import SHORTOPT, LONGOPT
+            from explainshell.options import opt_regex, opt2_regex
             import re
-            self.assertIsInstance(SHORTOPT, type(re.compile('')))
-            self.assertIsInstance(LONGOPT, type(re.compile('')))
+            self.assertIsInstance(opt_regex, type(re.compile('')))
+            self.assertIsInstance(opt2_regex, type(re.compile('')))
         except ImportError:
             self.skipTest("dependencies not available")
 
-    def test_shortopt_pattern(self):
+    def test_opt_regex_pattern(self):
         try:
-            from explainshell.options import SHORTOPT
-            # Test basic short option matching
-            match = SHORTOPT.match("-v")
+            from explainshell.options import opt_regex
+            # Test basic option matching
+            match = opt_regex.match("-v")
             self.assertIsNotNone(match)
-            match = SHORTOPT.match("--verbose")
-            self.assertIsNone(match)
+            match = opt_regex.match("--verbose")
+            self.assertIsNotNone(match)
         except ImportError:
             self.skipTest("dependencies not available")
 
-    def test_longopt_pattern(self):
+    def test_opt2_regex_pattern(self):
         try:
-            from explainshell.options import LONGOPT
-            # Test basic long option matching
-            match = LONGOPT.match("--verbose")
+            from explainshell.options import opt2_regex
+            # Test basic flag matching (like dd options)
+            match = opt2_regex.match("bs=1024")
             self.assertIsNotNone(match)
-            match = LONGOPT.match("-v")
+            match = opt2_regex.match("-v")
             self.assertIsNone(match)
         except ImportError:
             self.skipTest("dependencies not available")

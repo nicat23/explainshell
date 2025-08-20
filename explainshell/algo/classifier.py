@@ -64,8 +64,8 @@ class classifier(object):
         negfeats = [(get_features(p), False) for p in negids]
         posfeats = [(get_features(p), True) for p in posids]
 
-        negcutoff = len(negfeats) * 3 / 4
-        poscutoff = len(posfeats) * 3 / 4
+        negcutoff = int(len(negfeats) * 3 // 4)
+        poscutoff = int(len(posfeats) * 3 // 4)
 
         trainfeats = negfeats[:negcutoff] + posfeats[:poscutoff]
         self.testfeats = negfeats[negcutoff:] + posfeats[poscutoff:]

@@ -40,8 +40,12 @@ class mockstore(object):
         ]
 
         opts = list(opts)
-        opts.append(so(p4, [], [], False, "FILE"))
-        opts.append(so(p5, ["-exec"], [], True, nestedcommand=["EOF", ";"]))
+        opts.extend(
+            (
+                so(p4, [], [], False, "FILE"),
+                so(p5, ["-exec"], [], True, nestedcommand=True),
+            )
+        )
         self.manpages["withargs"] = sm(
             "withargs.1.gz",
             "withargs",
@@ -54,11 +58,9 @@ class mockstore(object):
 
     def findmanpage(self, x, section=None):
         try:
-            if x == "dup":
-                return self.dup
-            return [self.manpages[x]]
-        except KeyError:
-            raise errors.ProgramDoesNotExist(x)
+            return self.dup if x == "dup" else [self.manpages[x]]
+        except KeyError as e:
+            raise errors.ProgramDoesNotExist(x) from e
 
 
 s = mockstore()

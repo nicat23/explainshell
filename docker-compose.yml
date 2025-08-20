@@ -4,14 +4,19 @@ services:
     container_name: db
     volumes:
       - ../data:/data/db
+    ports:
+      - "27017:27017"
+
   web:
-    build: .
+    image: explainshell
     container_name: web
-    command: make serve
+    #command: make serve
     environment:
       - MONGO_URI=mongodb://db
       - HOST_IP=0.0.0.0
     volumes:
+      - /usr/share/man:/opt/webapp/manpages
+    #volumes:
       - .:/opt/webapp:rw
     ports:
       - "5000:5000"

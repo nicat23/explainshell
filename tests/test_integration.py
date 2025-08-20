@@ -19,7 +19,8 @@ class test_integration(unittest.TestCase):
 
         m = matcher.matcher(cmd, mngr.store)
         group = m.match()[1]
-        matchprog, matches = group.manpage.name, group.results
+        matchprog = group.manpage.name if group.manpage else None
+        matches = group.results
 
         self.assertEqual(matchprog, "echo")
 

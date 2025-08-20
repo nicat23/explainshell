@@ -10,7 +10,7 @@ bashlex==0.18
 MarkupSafe==3.0.2
 
 # Compatibility
-six==1.16.0
+six==1.17.0
 
 # Security - Updated to fix CVE-2024-12797
 cryptography>=44.0.1

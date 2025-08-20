@@ -271,6 +271,14 @@ RESERVEDWORDS = {
     "(": _subshell,
     ")": _subshell,
     ";": OPSEMICOLON,
+    "if": _if,
+    "then": _if,
+    "fi": _if,
+    "for": _for,
+    "do": _for,
+    "done": _for,
+    "while": _whileuntil,
+    "until": _whileuntil,
 }
 
 
@@ -305,6 +313,9 @@ _function = textwrap.dedent(
 
 _functioncall = "call shell function %r"
 _functionarg = "argument for shell function %r"
+
+# Add function to RESERVEDWORDS after it's defined
+RESERVEDWORDS["function"] = _function
 
 COMMENT = textwrap.dedent(
     """<b>COMMENTS</b>

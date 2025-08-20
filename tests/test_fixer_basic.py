@@ -12,8 +12,7 @@ class TestFixerBasic(unittest.TestCase):
 
     def test_fixer_has_functions(self):
         try:
-            from explainshell.fixer import splitcommand, findcommands
-            self.assertTrue(callable(splitcommand))
-            self.assertTrue(callable(findcommands))
+            from explainshell.fixer import register
+            self.assertTrue(callable(register))
         except ImportError:
             self.skipTest("dependencies not available")

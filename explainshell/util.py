@@ -1,8 +1,7 @@
 from __future__ import absolute_import
 import itertools
 from operator import itemgetter
-from six.moves import map
-from six.moves import zip
+# Python 3: map and zip are built-in and return iterators by default
 
 
 def consecutive(l, fn):
@@ -133,12 +132,10 @@ class peekable(object):
             return False
 
     def peek(self):
-        if self._peeked:
-            return self._peekvalue
-        else:
+        if not self._peeked:
             self._peekvalue = next(self.it)
             self._peeked = True
-            return self._peekvalue
+        return self._peekvalue
 
     @property
     def index(self):

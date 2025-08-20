@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import os, subprocess, re, logging, collections, six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
+import os, subprocess, re, logging, collections, urllib.parse
 
 from explainshell import config, store, errors
 
@@ -45,9 +45,7 @@ def bold(l):
     (['first', 'second:'], [])
     """
     inside = []
-    for m in _section.finditer(l):
-        inside.append(m.span(0))
-
+    inside.extend(m.span(0) for m in _section.finditer(l))
     current = 0
     outside = []
     for start, end in inside:
@@ -96,7 +94,7 @@ for searchfor, replacewith, underline in _replacementsprefix:
         x = list(replacewith)
         x.insert(1, "</u>")
         x = "".join(x)
-        _replacements.append((x, "%s</u>" % replacewith))
+        _replacements.append((x, f"{replacewith}</u>"))
 
 _replacementsnoprefix = [
     "\xc2\xb7",  # bullet
@@ -117,7 +115,7 @@ for s in _replacementsnoprefix:
     x = list(s)
     x.insert(1, "</u>")
     x = "".join(x)
-    _replacements.append((x, "%s</u>" % s))
+    _replacements.append((x, f"{s}</u>"))
 
 _href = re.compile(r'<a href="file:///[^\?]*\?([^\(]*)\(([^\)]*)\)">')
 _section = re.compile(r"<b>([^<]+)</b>")
@@ -135,8 +133,6 @@ def _parsetext(lines):
         )
         for lookfor, replacewith in _replacements:
             l = re.sub(lookfor, replacewith, l)
-        # line is already a string in Python 3
-        pass
         if l.startswith("<b>"):  # section
             section = re.sub(_section, r"\1", l)
         else:
@@ -165,7 +161,10 @@ def _parsesynopsis(base, synopsis):
     synopsis = synopsis[len(base) + 3 : -1]
     if synopsis[-1] == ".":
         synopsis = synopsis[:-1]
-    return SPLITSYNOP.match(synopsis).groups()
+    match = SPLITSYNOP.match(synopsis)
+    if match is None:
+        raise ValueError(f"Could not parse synopsis: {synopsis}")
+    return match.groups()
 
 
 class manpage(object):
@@ -183,7 +182,7 @@ class manpage(object):
         self.path = path
         self.shortpath = os.path.basename(self.path)
         self.name = extractname(self.path)
-        self.aliases = set([self.name])
+        self.aliases = {self.name}
         self.synopsis = None
         self.paragraphs = None
         self._text = None
@@ -193,34 +192,50 @@ class manpage(object):
         on the class instance."""
         cmd = [
             config.MAN2HTML,
-            six.moves.urllib.parse.urlencode({"local": os.path.abspath(self.path)}),
+            urllib.parse.urlencode({"local": os.path.abspath(self.path)}),
         ]
         logger.info("executing %r", " ".join(cmd))
-        self._text = subprocess.check_output(cmd, stderr=devnull, env=ENV)
+        self._text = subprocess.check_output(cmd, stderr=devnull, env=ENV).decode('utf-8', errors='replace')
         try:
             self.synopsis = subprocess.check_output(
                 ["lexgrog", self.path], stderr=devnull
-            ).rstrip()
+            ).decode('utf-8', errors='replace').rstrip()
         except subprocess.CalledProcessError:
             logger.error("failed to extract synopsis for %s", self.name)
 
     def parse(self):
-        self.paragraphs = list(_parsetext(self._text.splitlines()[7:-3]))
+        if isinstance(self._text, str):
+            text_lines = self._text.splitlines()[7:-3]
+        elif isinstance(self._text, bytes):
+            text_lines = self._text.decode('utf-8', errors='replace').splitlines()[7:-3]
+        elif self._text is None:
+            text_lines = []
+        else:
+            raise TypeError(f"Unsupported type for self._text: {type(self._text)}")
+        self.paragraphs = list(_parsetext(text_lines))
         if not self.paragraphs:
             raise errors.EmptyManpage(self.shortpath)
         if self.synopsis:
-            self.synopsis = [
-                _parsesynopsis(self.path, l) for l in self.synopsis.splitlines()
-            ]
-
-            # figure out aliases from the synopsis
-            d = collections.OrderedDict()
-            for prog, text in self.synopsis:
-                d.setdefault(text, []).append(prog)
-            text, progs = list(d.items())[0]
-            self.synopsis = text
-            self.aliases.update(progs)
+            self._extracted_from_parse_7()
         self.aliases.remove(self.name)
 
         # give the name of the man page the highest score
         self.aliases = [(self.name, 10)] + [(x, 1) for x in self.aliases]
+
+    # TODO Rename this here and in `parse`
+    def _extracted_from_parse_7(self):
+        if self.synopsis is None:
+            return
+        parsed_synopsis = [
+            _parsesynopsis(self.path, l) for l in self.synopsis.splitlines()
+        ]
+
+        # figure out aliases from the synopsis
+        d = collections.OrderedDict()
+        for prog, text in parsed_synopsis:
+            d.setdefault(text, []).append(prog)
+        if items := list(d.items()):
+            text, progs = items[0]
+            self.synopsis = text
+            self.aliases = set(self.aliases)
+            self.aliases.update(progs)

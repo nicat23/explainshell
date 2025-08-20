@@ -9,3 +9,5 @@ dev/
 *.bak
 .pyc
 .amazonq/
+.vscode
+.vscode/*

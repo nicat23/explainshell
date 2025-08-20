@@ -11,11 +11,8 @@ class test_manager(unittest.TestCase):
 
     def _getmanager(self, names, **kwargs):
         l = []
-        for n in names:
-            l.append(os.path.join(config.MANPAGEDIR, "1", n))
-
-        m = manager.manager(config.MONGO_URI, "explainshell_tests", l, **kwargs)
-        return m
+        l.extend(os.path.join(config.MANPAGEDIR, "1", n) for n in names)
+        return manager.manager(config.MONGO_URI, "explainshell_tests", l, **kwargs)
 
     def test(self):
         m = self._getmanager(["tar.1.gz"])
@@ -45,12 +42,14 @@ class test_manager(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(list(notfound), ["bar"])
 
-        s.mapping.drop()
+        if s.mapping is not None:
+            s.mapping.drop()
         m.run()
         ok, unreachable, notfound = s.verify()
         self.assertTrue(ok)
 
-        s.mapping.drop()
+        if s.mapping is not None:
+            s.mapping.drop()
         ok, unreachable, notfound = s.verify()
         self.assertEqual(list(unreachable), ["tar"])
 
@@ -84,13 +83,13 @@ class test_manager(unittest.TestCase):
         a, e = m.run()
         self.assertTrue(a)
         self.assertFalse(e)
-        self.assertEqual(m.store.mapping.count(), 1)
+        self.assertEqual(m.store.mapping.count() if m.store.mapping is not None else 0, 1)
         self.assertEqual(len(list(m.store)), 1)
 
         a, e = m.run()
         self.assertFalse(a)
         self.assertTrue(e)
-        self.assertEqual(m.store.mapping.count(), 1)
+        self.assertEqual(m.store.mapping.count() if m.store.mapping is not None else 0, 1)
         self.assertEqual(len(list(m.store)), 1)
 
         m = manager.manager(
@@ -102,7 +101,7 @@ class test_manager(unittest.TestCase):
         a, e = m.run()
         self.assertTrue(a)
         self.assertFalse(e)
-        self.assertEqual(m.store.mapping.count(), 1)
+        self.assertEqual(m.store.mapping.count() if m.store.mapping is not None else 0, 1)
         self.assertEqual(len(list(m.store)), 1)
 
         m.store.verify()

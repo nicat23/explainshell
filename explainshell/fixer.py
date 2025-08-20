@@ -1,10 +1,10 @@
 from __future__ import absolute_import
-import textwrap, logging
+import textwrap, logging, contextlib
 
 from explainshell import util
 
 
-class basefixer(object):
+class basefixer:
     """The base fixer class which other fixers inherit from.
 
     Subclasses override the base methods in order to fix manpage content during
@@ -44,7 +44,7 @@ fixerscls = []
 fixerspriority = {}
 
 
-class runner(object):
+class runner:
     """The runner coordinates the fixers."""
 
     def __init__(self, mctx):
@@ -105,13 +105,11 @@ class bulletremover(basefixer):
     def post_parse_manpage(self):
         toremove = []
         for i, p in enumerate(self.mctx.manpage.paragraphs):
-            try:
+            with contextlib.suppress(ValueError):
                 idx = p.text.index("\xc2\xb7")
                 p.text = p.text[:idx] + p.text[idx + 2 :]
                 if not p.text.strip():
                     toremove.append(i)
-            except ValueError:
-                pass
         for i in reversed(toremove):
             del self.mctx.manpage.paragraphs[i]
 
@@ -122,7 +120,7 @@ class leadingspaceremover(basefixer):
     by the amount of spaces in the first line"""
 
     def post_option_extraction(self):
-        for i, p in enumerate(self.mctx.manpage.options):
+        for p in self.mctx.manpage.options:
             text = self._removewhitespace(p.text)
             p.text = text
 
@@ -177,10 +175,11 @@ class paragraphjoiner(basefixer):
                     curr.idx,
                     next.idx - 1,
                 )
-                newdesc = [curr.text.rstrip()]
-                newdesc.extend([p.text.rstrip() for p in between])
+                newdesc = [(curr.text or "").rstrip()]
+                newdesc.extend([(p.text or "").rstrip() for p in between])
                 curr.text = "\n\n".join(newdesc)
-                del paragraphs[start : start + len(between)]
+                if start is not None:
+                    del paragraphs[start : start + len(between)]
                 totalmerged += len(between)
         return totalmerged
 
@@ -215,13 +214,9 @@ def _parents(fixercls):
     last = fixercls.runlast
 
     if last and p:
-        raise ValueError(
-            "%s can't be last and also run before someone else" % fixercls.__name__
-        )
+        raise ValueError(f"{fixercls.__name__} can't be last and also run before someone else")
 
-    if last:
-        return [f for f in fixerscls if f is not fixercls]
-    return p
+    return [f for f in fixerscls if f is not fixercls] if last else p
 
 
 fixerscls = util.toposorted(fixerscls, _parents)
