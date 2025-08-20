@@ -9,14 +9,14 @@ class TestFinalCoverage(unittest.TestCase):
             @propertycache
             def cached_prop(self):
                 return "cached_value"
-        
+
         obj = TestClass()
-        descriptor = TestClass.__dict__['cached_prop']
-        
+        descriptor = TestClass.__dict__["cached_prop"]
+
         # Test __get__ with type parameter
         result = descriptor.__get__(obj, TestClass)
         self.assertEqual(result, "cached_value")
-        
+
         # Test that value is cached
         self.assertEqual(obj.cached_prop, "cached_value")
 
@@ -24,12 +24,12 @@ class TestFinalCoverage(unittest.TestCase):
         # Test propertycache cachevalue method
         def dummy_func(self):
             return "test"
-        
+
         cache = propertycache(dummy_func)
-        
+
         class TestObj:
             pass
-        
+
         obj = TestObj()
         cache.cachevalue(obj, "cached")
         self.assertEqual(getattr(obj, dummy_func.__name__), "cached")

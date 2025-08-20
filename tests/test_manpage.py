@@ -6,7 +6,7 @@ from explainshell import manpage, store
 class test_manpage(unittest.TestCase):
     def test_first_paragraph_no_section(self):
         m = "foo\nbar"
-        l = list(manpage._parsetext(m.split('\n')))
+        l = list(manpage._parsetext(m.split("\n")))
         self.assertEqual(l, [store.paragraph(0, "foo\nbar", None, False)])
 
     def test_sections(self):
@@ -28,7 +28,7 @@ a
 
 tNOTASECTION"""
 
-        parsed = list(manpage._parsetext(m.split('\n')))
+        parsed = list(manpage._parsetext(m.split("\n")))
         self.assertTrue(len(parsed) == 5)
         self.assertEqual(
             parsed,

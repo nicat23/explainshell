@@ -8,7 +8,9 @@ from explainshell import errors, util, helpconstants, config
 logger = logging.getLogger(__name__)
 
 
-class classifiermanpage(collections.namedtuple("classifiermanpage", "name paragraphs")):
+class classifiermanpage(
+    collections.namedtuple("classifiermanpage", "name paragraphs")
+):
     """a man page that had its paragraphs manually tagged as containing options
     or not"""
 
@@ -71,7 +73,9 @@ class option(paragraph):
     nestedcommand - specifies if the arguments to this option can start a nested command
     """
 
-    def __init__(self, p, short, long, expectsarg, argument=None, nestedcommand=False):
+    def __init__(
+        self, p, short, long, expectsarg, argument=None, nestedcommand=False
+    ):
         paragraph.__init__(self, p.idx, p.text, p.section, p.is_option)
         self.short = short
         self.long = long
@@ -337,7 +341,9 @@ class store(object):
         cursor = self.manpage.find(
             {"_id": {"$in": list(dsts.keys())}}, {"name": 1, "source": 1}
         )
-        cursor_count = self.manpage.count_documents({"_id": {"$in": list(dsts.keys())}})
+        cursor_count = self.manpage.count_documents(
+            {"_id": {"$in": list(dsts.keys())}}
+        )
         if cursor_count != len(dsts):
             logger.error(
                 "one of %r mappings is missing in manpage collection "
@@ -346,7 +352,9 @@ class store(object):
                 len(dsts),
                 cursor_count,
             )
-        results = [(d.pop("_id"), manpage.from_store_name_only(**d)) for d in cursor]
+        results = [
+            (d.pop("_id"), manpage.from_store_name_only(**d)) for d in cursor
+        ]
         results.sort(key=lambda x: dsts.get(x[0], 0), reverse=True)
         logger.info("got %s", results)
         if section is not None:
@@ -357,7 +365,9 @@ class store(object):
                 logger.info(r"sorting %r so %s is first", results, section)
             if results[0][1].section != section:
                 raise errors.ProgramDoesNotExist(origname)
-            results.extend(self._discovermanpagesuggestions(results[0][0], results))
+            results.extend(
+                self._discovermanpagesuggestions(results[0][0], results)
+            )
 
         oid = results[0][0]
         results = [x[1] for x in results]
@@ -370,7 +380,11 @@ class store(object):
     # TODO Rename this here and in `findmanpage`
     def _extracted_from_findmanpage_9(self, name):
         logger.info("name ends with .gz, looking up an exact match by source")
-        d = self.manpage.find_one({"source": name}) if self.manpage is not None else None
+        d = (
+            self.manpage.find_one({"source": name})
+            if self.manpage is not None
+            else None
+        )
         if not d:
             raise errors.ProgramDoesNotExist(name)
         m = manpage.from_store(d)
@@ -393,7 +407,9 @@ class store(object):
         # find all dsts of srcs
         suggestionoids = self.mapping.find({"src": {"$in": srcs}}, {"dst": 1})
         # remove already discovered
-        suggestionoids = [d["dst"] for d in suggestionoids if d["dst"] not in skip]
+        suggestionoids = [
+            d["dst"] for d in suggestionoids if d["dst"] not in skip
+        ]
         if not suggestionoids:
             return []
 
@@ -403,7 +419,8 @@ class store(object):
                 {"_id": {"$in": suggestionoids}}, {"name": 1, "source": 1}
             )
             return [
-                (d.pop("_id"), manpage.from_store_name_only(**d)) for d in suggestionoids_cursor
+                (d.pop("_id"), manpage.from_store_name_only(**d))
+                for d in suggestionoids_cursor
             ]
         return []
 
@@ -452,7 +469,9 @@ class store(object):
         if self.manpage is not None:
             logger.info("updating manpage %s", m.source)
             m.updated = True
-            self.manpage.update_one({"source": m.source}, {"$set": m.to_store()})
+            self.manpage.update_one(
+                {"source": m.source}, {"$set": m.to_store()}
+            )
             doc = self.manpage.find_one({"source": m.source}, {"_id": 1})
             _id = doc["_id"] if doc is not None else None
             for alias, score in m.aliases:
@@ -467,7 +486,10 @@ class store(object):
                     )
                 else:
                     logger.debug(
-                        "mapping (alias) %s -> %s (%s) already exists", alias, m.name, _id
+                        "mapping (alias) %s -> %s (%s) already exists",
+                        alias,
+                        m.name,
+                        _id,
                     )
         return m
 
@@ -483,7 +505,8 @@ class store(object):
         unreachable = manpages - reachable
         if unreachable:
             logger.error(
-                "manpages %r are unreachable (nothing maps to them)", unreachable
+                "manpages %r are unreachable (nothing maps to them)",
+                unreachable,
             )
             unreachable_ids = unreachable
             unreachable = []
@@ -515,4 +538,6 @@ class store(object):
 
     def setmulticommand(self, manpageid):
         if self.manpage is not None:
-            self.manpage.update_one({"_id": manpageid}, {"$set": {"multicommand": True}})
+            self.manpage.update_one(
+                {"_id": manpageid}, {"$set": {"multicommand": True}}
+            )

@@ -168,7 +168,10 @@ class paragraphjoiner(basefixer):
         totalmerged = 0
         for curr, next in util.pairwise(options):
             between, start = _paragraphsbetween(curr, next)
-            if curr.section == next.section and 1 <= len(between) < self.maxdistance:
+            if (
+                curr.section == next.section
+                and 1 <= len(between) < self.maxdistance
+            ):
                 self.logger.info(
                     "merging paragraphs %d through %d (inclusive)",
                     curr.idx,
@@ -195,7 +198,9 @@ class optiontrimmer(basefixer):
 
     def post_classify(self):
         start, end = self.d[self.mctx.name]
-        classifiedoptions = [p for p in self.mctx.manpage.paragraphs if p.is_option]
+        classifiedoptions = [
+            p for p in self.mctx.manpage.paragraphs if p.is_option
+        ]
         assert classifiedoptions
         if end == -1:
             end = classifiedoptions[-1].idx
@@ -213,7 +218,9 @@ def _parents(fixercls):
     last = fixercls.runlast
 
     if last and p:
-        raise ValueError(f"{fixercls.__name__} can't be last and also run before someone else")
+        raise ValueError(
+            f"{fixercls.__name__} can't be last and also run before someone else"
+        )
 
     return [f for f in fixerscls if f is not fixercls] if last else p
 

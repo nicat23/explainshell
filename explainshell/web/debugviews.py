@@ -41,21 +41,32 @@ def _process_paragraphs(paragraphs_data):
         long = [s.strip() for s in d["long"]]
         expectsarg = _convertvalue(d["expectsarg"])
         nestedcommand = _convertvalue(d["nestedcommand"])
-        
+
         # Only allow bool for nestedcommand, as required by store.option
         if isinstance(nestedcommand, list):
             nestedcommand = bool(nestedcommand)
         elif isinstance(nestedcommand, str):
             nestedcommand = bool(nestedcommand.strip())
         elif nestedcommand is not True and nestedcommand is not False:
-            logger.error("nestedcommand %r must be a boolean, string, or list", nestedcommand)
+            logger.error(
+                "nestedcommand %r must be a boolean, string, or list",
+                nestedcommand,
+            )
             abort(503)
-            
+
         p = store.paragraph(d["idx"], d["text"], d["section"], d["is_option"])
         if d["is_option"] and (short or long or d["argument"]):
-            p = store.option(p, short, long, expectsarg, d["argument"] or None, nestedcommand)
+            p = store.option(
+                p,
+                short,
+                long,
+                expectsarg,
+                d["argument"] or None,
+                nestedcommand,
+            )
         mparagraphs.append(p)
     return mparagraphs
+
 
 @app.route("/debug/tag/<source>", methods=["GET", "POST"])
 def tag(source):
@@ -66,8 +77,10 @@ def tag(source):
     if "paragraphs" in request.form:
         paragraphs = json.loads(request.form["paragraphs"])
         mparagraphs = _process_paragraphs(paragraphs)
-        m.nestedcommand = request.form.get("nestedcommand", "").lower() == "true"
-        
+        m.nestedcommand = (
+            request.form.get("nestedcommand", "").lower() == "true"
+        )
+
         if m := mngr.edit(m, mparagraphs):
             return redirect(url_for("explain", cmd=m.name))
         else:

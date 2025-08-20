@@ -45,7 +45,9 @@ def groupcontinuous(l, key=None):
     """
     if key is None:
         key = lambda x: x
-    for k, g in itertools.groupby(enumerate(l), lambda i_x: i_x[0] - key(i_x[1])):
+    for k, g in itertools.groupby(
+        enumerate(l), lambda i_x: i_x[0] - key(i_x[1])
+    ):
         yield list(map(itemgetter(1), g))
 
 

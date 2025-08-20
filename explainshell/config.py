@@ -17,7 +17,9 @@ LOGGING_DICT = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "standard": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
+        "standard": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        },
     },
     "handlers": {
         "console": {
@@ -34,6 +36,10 @@ LOGGING_DICT = {
         },
     },
     "loggers": {
-        "explainshell": {"handlers": ["console"], "level": "INFO", "propagate": False}
+        "explainshell": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+            "propagate": False,
+        }
     },
 }

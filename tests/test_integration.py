@@ -27,7 +27,8 @@ class test_integration(unittest.TestCase):
         self.assertEqual(matches[0].match, "echo")
 
         self.assertEqual(
-            matches[1].text, "<b>-e</b>     enable interpretation of backslash escapes"
+            matches[1].text,
+            "<b>-e</b>     enable interpretation of backslash escapes",
         )
         self.assertEqual(matches[1].match, "-e")
 

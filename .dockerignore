@@ -38,7 +38,7 @@ dev/
 *.swp
 *.swo
 *~
-
+.amazonq/
 # OS
 .DS_Store
 .DS_Store?
@@ -67,3 +67,4 @@ data/
 *.db
 *.sqlite
 Makefile.dev
+application.log

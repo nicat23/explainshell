@@ -29,7 +29,9 @@ def explain():
     command = command[:1000]  # trim commands longer than 1000 characters
     if "\n" in command:
         return render_template(
-            "errors/error.html", title="parsing error!", message="no newlines please"
+            "errors/error.html",
+            title="parsing error!",
+            message="no newlines please",
         )
 
     s = store.store("explainshell", config.MONGO_URI)
@@ -45,7 +47,9 @@ def explain():
         )
     except bashlex.errors.ParsingError as e:
         logger.warn("%r parsing error: %s", command, e.message)
-        return render_template("errors/parsingerror.html", title="parsing error!", e=e)
+        return render_template(
+            "errors/parsingerror.html", title="parsing error!", e=e
+        )
     except NotImplementedError as e:
         logger.warn("not implemented error trying to explain %r", command)
         msg = (
@@ -54,11 +58,17 @@ def explain():
             "bug</a> to have this added, if one doesn't already exist."
         ) % e.args[0]
 
-        return render_template("errors/error.html", title="error!", message=msg)
+        return render_template(
+            "errors/error.html", title="error!", message=msg
+        )
     except Exception:
-        logger.error("uncaught exception trying to explain %r", command, exc_info=True)
+        logger.error(
+            "uncaught exception trying to explain %r", command, exc_info=True
+        )
         msg = "something went wrong... this was logged and will be checked"
-        return render_template("errors/error.html", title="error!", message=msg)
+        return render_template(
+            "errors/error.html", title="error!", message=msg
+        )
 
 
 @app.route("/explain/<program>", defaults={"section": None})
@@ -74,11 +84,15 @@ def explainold(section, program):
     if "args" in request.args:
         args = request.args["args"]
         command = f"{program} {args}"
-        return redirect(f"/explain?cmd={urllib.parse.quote_plus(command)}", 301)
+        return redirect(
+            f"/explain?cmd={urllib.parse.quote_plus(command)}", 301
+        )
     else:
         try:
             mp, suggestions = explainprogram(program, s)
-            return render_template("options.html", mp=mp, suggestions=suggestions)
+            return render_template(
+                "options.html", mp=mp, suggestions=suggestions
+            )
         except errors.ProgramDoesNotExist as e:
             return render_template(
                 "errors/missingmanpage.html", title="missing man page", e=e
@@ -103,7 +117,10 @@ def explainprogram(program, store):
 
     suggestions = []
     for othermp in mps:
-        d = {"text": othermp.namesection, "link": f"{othermp.section}/{othermp.name}"}
+        d = {
+            "text": othermp.namesection,
+            "link": f"{othermp.section}/{othermp.name}",
+        }
         suggestions.append(d)
     logger.info("suggestions: %s", suggestions)
     return mp, suggestions
@@ -120,7 +137,9 @@ def _makematch(start, end, match, commandclass, helpclass):
     }
 
 
-def _process_group_results(group, texttoid, idstartpos, expansions, is_shell=False):
+def _process_group_results(
+    group, texttoid, idstartpos, expansions, is_shell=False
+):
     """Process results from a match group and return formatted matches."""
     matches = []
     for m in group.results:
@@ -139,6 +158,7 @@ def _process_group_results(group, texttoid, idstartpos, expansions, is_shell=Fal
         matches.append(d)
     return matches
 
+
 def _add_command_metadata(matches, commandgroup):
     """Add command metadata to the first match in a command group."""
     if matches:
@@ -152,6 +172,7 @@ def _add_command_metadata(matches, commandgroup):
             d["suggestions"] = commandgroup.suggestions
             d["source"] = commandgroup.manpage.source[:-5]
 
+
 def explaincommand(command, store):
     matcher_ = matcher.matcher(command, store)
     groups = matcher_.match()
@@ -159,14 +180,18 @@ def explaincommand(command, store):
 
     texttoid = {}
     idstartpos = {}
-    
+
     # Process shell group
-    shell_matches = _process_group_results(groups[0], texttoid, idstartpos, expansions, True)
+    shell_matches = _process_group_results(
+        groups[0], texttoid, idstartpos, expansions, True
+    )
     all_matches = [shell_matches]
-    
+
     # Process command groups
     for commandgroup in groups[1:]:
-        cmd_matches = _process_group_results(commandgroup, texttoid, idstartpos, expansions)
+        cmd_matches = _process_group_results(
+            commandgroup, texttoid, idstartpos, expansions
+        )
         _add_command_metadata(cmd_matches, commandgroup)
         all_matches.append(cmd_matches)
 
@@ -250,7 +275,8 @@ def _substitutionmarkup(cmd):
     """
     encoded = urllib.parse.urlencode({"cmd": cmd})
     return (
-        '<a href="/explain?{query}" title="Zoom in to nested command">{cmd}' "</a>"
+        '<a href="/explain?{query}" title="Zoom in to nested command">{cmd}'
+        "</a>"
     ).format(cmd=cmd, query=encoded)
 
 

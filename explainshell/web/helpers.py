@@ -18,6 +18,9 @@ def suggestions(matches, command):
             for othermp in sorted(m["suggestions"], key=lambda mp: mp.section):
                 mid = f"{othermp.name}.{othermp.section}"
                 newsuggestions.append(
-                    {"cmd": "".join([before, mid, after]), "text": othermp.namesection}
+                    {
+                        "cmd": "".join([before, mid, after]),
+                        "text": othermp.namesection,
+                    }
                 )
             m["suggestions"] = newsuggestions

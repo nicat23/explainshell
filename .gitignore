@@ -11,3 +11,6 @@ dev/
 .amazonq/
 .vscode
 .vscode/*
+application.log
+.amazonq/*
+.amazonq

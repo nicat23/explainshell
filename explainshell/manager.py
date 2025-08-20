@@ -3,6 +3,7 @@ import sys, os, argparse, logging, glob
 
 from explainshell import options, store, fixer, manpage, errors, util, config
 from explainshell.algo import classifier
+
 # Python 3 only: use built-in input
 
 logger = logging.getLogger("explainshell.manager")
@@ -67,7 +68,9 @@ class manager(object):
         options.extract(ctx.manpage)
         frunner.post_option_extraction()
         if not ctx.manpage.options:
-            logger.warning("couldn't find any options for manpage %s", ctx.manpage.name)
+            logger.warning(
+                "couldn't find any options for manpage %s", ctx.manpage.name
+            )
 
     def _write(self, ctx, frunner):
         frunner.pre_add_manpage()
@@ -125,11 +128,15 @@ class manager(object):
             except errors.EmptyManpage as e:
                 logger.error("manpage %r is empty!", e.args[0])
             except ValueError:
-                logger.fatal("uncaught exception when handling manpage %s", path)
+                logger.fatal(
+                    "uncaught exception when handling manpage %s", path
+                )
             except KeyboardInterrupt:
                 raise
             except:
-                logger.fatal("uncaught exception when handling manpage %s", path)
+                logger.fatal(
+                    "uncaught exception when handling manpage %s", path
+                )
                 raise
         if not added:
             logger.warning("no manpages added")
@@ -179,14 +186,19 @@ def main(files, dbname, dbhost, overwrite, drop, verify):
         if input("really drop db (y/n)? ").strip().lower() != "y":
             drop = False
         else:
-            overwrite = True  # if we drop, no need to take overwrite into account
+            overwrite = (
+                True  # if we drop, no need to take overwrite into account
+            )
 
     gzs = set()
 
     for path in files:
         if os.path.isdir(path):
             gzs.update(
-                [os.path.abspath(f) for f in glob.glob(os.path.join(path, "*.gz"))]
+                [
+                    os.path.abspath(f)
+                    for f in glob.glob(os.path.join(path, "*.gz"))
+                ]
             )
         else:
             gzs.add(os.path.abspath(path))
@@ -207,7 +219,10 @@ if __name__ == "__main__":
         description="process man pages and save them in the store"
     )
     parser.add_argument(
-        "--log", type=str, default="ERROR", help="use log as the logger log level"
+        "--log",
+        type=str,
+        default="ERROR",
+        help="use log as the logger log level",
     )
     parser.add_argument(
         "--overwrite",
@@ -224,12 +239,22 @@ if __name__ == "__main__":
     parser.add_argument("--db", default="explainshell", help="mongo db name")
     parser.add_argument("--host", default=config.MONGO_URI, help="mongo host")
     parser.add_argument(
-        "--verify", action="store_true", default=False, help="verify db integrity"
+        "--verify",
+        action="store_true",
+        default=False,
+        help="verify db integrity",
     )
     parser.add_argument("files", nargs="*")
 
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
     sys.exit(
-        main(args.files, args.db, args.host, args.overwrite, args.drop, args.verify)
+        main(
+            args.files,
+            args.db,
+            args.host,
+            args.overwrite,
+            args.drop,
+            args.verify,
+        )
     )
