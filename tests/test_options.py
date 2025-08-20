@@ -22,7 +22,9 @@ class test_options(unittest.TestCase):
         self.assertEqual(options.extract_option(s), r)
 
         s = "\t-a     -b,-c,           -d description"
-        self.assertEqual(options.extract_option(s), (["-a", "-b", "-c", "-d"], []))
+        self.assertEqual(
+            options.extract_option(s), (["-a", "-b", "-c", "-d"], [])
+        )
 
         s = "\t--a, -b, --c-d description"
         self.assertEqual(options.extract_option(s), (["-b"], ["--a", "--c-d"]))
@@ -46,7 +48,8 @@ class test_options(unittest.TestCase):
 
         s = "\t-a<n>, -b=<BAR>, -C <ah>"
         self.assertEqual(
-            options.extract_option(s), ([("-a", "n"), ("-b", "BAR"), ("-C", "ah")], [])
+            options.extract_option(s),
+            ([("-a", "n"), ("-b", "BAR"), ("-C", "ah")], []),
         )
 
         s = "\t--aa    FOO, --bb=BAR, description"
@@ -62,11 +65,15 @@ class test_options(unittest.TestCase):
         self.assertEqual(options.extract_option(s), (["-a", "b"], []))
 
         s = "-a|-b|--c|d"
-        self.assertEqual(options.extract_option(s), (["-a", "-b", "d"], ["--c"]))
+        self.assertEqual(
+            options.extract_option(s), (["-a", "-b", "d"], ["--c"])
+        )
 
     def test_multiline_options(self):
         s = "\t-a, -b, \n-c, --ddd description"
-        self.assertEqual(options.extract_option(s), (["-a", "-b", "-c"], ["--ddd"]))
+        self.assertEqual(
+            options.extract_option(s), (["-a", "-b", "-c"], ["--ddd"])
+        )
 
     def test_multiline_desc(self):
         s = "\t-a, -b description\n\tmultiline\n  another line"
@@ -82,7 +89,8 @@ class test_options(unittest.TestCase):
     def test_hyphen_in_arg(self):
         s = "-a=FOO-BAR, --aa=FOO-BAR"
         self.assertEqual(
-            options.extract_option(s), ([("-a", "FOO-BAR")], [("--aa", "FOO-BAR")])
+            options.extract_option(s),
+            ([("-a", "FOO-BAR")], [("--aa", "FOO-BAR")]),
         )
 
         # s = '-a FOO-BAR, --aa FOO-BAR'
@@ -116,10 +124,10 @@ class test_options(unittest.TestCase):
         # Test invalid input types
         with self.assertRaises((TypeError, AttributeError)):
             options.extract_option(None)
-        
+
         # Test empty string
         self.assertEqual(options.extract_option(""), ([], []))
-        
+
         # Test malformed options
         self.assertEqual(options.extract_option("---invalid"), ([], []))
         self.assertEqual(options.extract_option("-"), ([], []))

@@ -27,7 +27,8 @@ class test_fixer(unittest.TestCase):
         maxdistance = fixer.paragraphjoiner.maxdistance
 
         paragraphs = [
-            store.paragraph(i, chr(ord("a") + i), None, False) for i in range(26)
+            store.paragraph(i, chr(ord("a") + i), None, False)
+            for i in range(26)
         ]
         options = [
             store.option(paragraphs[0], [], [], False),

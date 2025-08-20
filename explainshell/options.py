@@ -19,7 +19,9 @@ def extract(manpage):
                 l = [x.flag for x in l]
                 manpage.paragraphs[i] = store.option(p, s, l, expectsarg)
             else:
-                logger.error("no options could be extracted from paragraph %r", p)
+                logger.error(
+                    "no options could be extracted from paragraph %r", p
+                )
 
 
 opt_regex = re.compile(
@@ -134,7 +136,9 @@ def _eatbetween(s, pos):
     return m.end(0) if m else pos
 
 
-class extractedoption(collections.namedtuple("extractedoption", "flag expectsarg")):
+class extractedoption(
+    collections.namedtuple("extractedoption", "flag expectsarg")
+):
     def __eq__(self, other):
         if isinstance(other, str):
             return self.flag == other
@@ -169,7 +173,9 @@ def extract_option(txt):
                 startpos = currpos
                 while currpos < len(txt) and not txt[currpos].isspace():
                     if txt[currpos] == "|":
-                        short.append(extractedoption(txt[startpos:currpos], None))
+                        short.append(
+                            extractedoption(txt[startpos:currpos], None)
+                        )
                         startpos = currpos
                     currpos += 1
                 if leftover := txt[startpos:currpos]:

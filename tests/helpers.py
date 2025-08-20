@@ -1,4 +1,4 @@
-from explainshell import matcher, store, errors, options, helpconstants
+from explainshell import store, errors
 
 
 class mockstore(object):
@@ -20,8 +20,12 @@ class mockstore(object):
             so(p3, ["-c"], [], ["one", "two"]),
         ]
         self.manpages = {
-            "bar": sm("bar.1.gz", "bar", "bar synopsis", opts, [], multicommand=True),
-            "baz": sm("baz.1.gz", "baz", "baz synopsis", opts, [], partialmatch=True),
+            "bar": sm(
+                "bar.1.gz", "bar", "bar synopsis", opts, [], multicommand=True
+            ),
+            "baz": sm(
+                "baz.1.gz", "baz", "baz synopsis", opts, [], partialmatch=True
+            ),
             "bar foo": sm(
                 "bar-foo.1.gz",
                 "bar-foo",

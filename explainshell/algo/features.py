@@ -16,7 +16,11 @@ def extract_first_line(paragraph):
     first = lines[0].strip()
     if spaces := list(re.finditer(r"(\s+)", first)):
         longest = max(spaces, key=lambda m: m.span()[1] - m.span()[0])
-        if longest and longest.start() > 1 and longest.end() - longest.start() > 1:
+        if (
+            longest
+            and longest.start() > 1
+            and longest.end() - longest.start() > 1
+        ):
             first = first[: longest.start()]
     return first
 

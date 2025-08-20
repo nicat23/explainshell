@@ -1,5 +1,12 @@
 import unittest
-from explainshell.algo.features import extract_first_line, starts_with_hyphen, is_indented, par_length, word_count, has_bold
+from explainshell.algo.features import (
+    extract_first_line,
+    starts_with_hyphen,
+    is_indented,
+    par_length,
+    word_count,
+    has_bold,
+)
 
 
 class TestFeatures(unittest.TestCase):
@@ -34,8 +41,10 @@ class TestFeatures(unittest.TestCase):
     def test_word_count(self):
         result = word_count("hello world test")
         self.assertEqual(result, 0)  # 3 words rounded to nearest 10 is 0
-        
-        result = word_count("one two three four five six seven eight nine ten eleven")
+
+        result = word_count(
+            "one two three four five six seven eight nine ten eleven"
+        )
         self.assertEqual(result, 10)  # 11 words rounded to nearest 10 is 10
 
     def test_has_bold_true(self):

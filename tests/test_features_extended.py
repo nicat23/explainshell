@@ -1,5 +1,10 @@
 import unittest
-from explainshell.algo.features import first_line_contains, first_line_length, first_line_word_count, is_good_section
+from explainshell.algo.features import (
+    first_line_contains,
+    first_line_length,
+    first_line_word_count,
+    is_good_section,
+)
 
 
 class TestFeaturesExtended(unittest.TestCase):
@@ -29,7 +34,7 @@ class TestFeaturesExtended(unittest.TestCase):
         class MockParagraph:
             def __init__(self, section):
                 self.section = section
-        
+
         p = MockParagraph("OPTIONS")
         result = is_good_section(p)
         self.assertTrue(result)
@@ -38,7 +43,7 @@ class TestFeaturesExtended(unittest.TestCase):
         class MockParagraph:
             def __init__(self, section):
                 self.section = section
-        
+
         p = MockParagraph("description")
         result = is_good_section(p)
         self.assertTrue(result)
@@ -47,7 +52,7 @@ class TestFeaturesExtended(unittest.TestCase):
         class MockParagraph:
             def __init__(self, section):
                 self.section = section
-        
+
         p = MockParagraph("AUTHOR")
         result = is_good_section(p)
         self.assertFalse(result)
@@ -56,7 +61,7 @@ class TestFeaturesExtended(unittest.TestCase):
         class MockParagraph:
             def __init__(self, section):
                 self.section = section
-        
+
         p = MockParagraph(None)
         result = is_good_section(p)
         self.assertFalse(result)

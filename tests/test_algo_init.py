@@ -9,4 +9,5 @@ class TestAlgoInit(unittest.TestCase):
     def test_algo_has_submodules(self):
         # Test that the algo package can be imported
         import explainshell.algo.features
+
         self.assertIsNotNone(explainshell.algo.features)

@@ -11,13 +11,17 @@ class test_manager(unittest.TestCase):
     def _getmanager(self, names, **kwargs):
         l = []
         l.extend(os.path.join(config.MANPAGEDIR, "1", n) for n in names)
-        return manager.manager(config.MONGO_URI, "explainshell_tests", l, **kwargs)
+        return manager.manager(
+            config.MONGO_URI, "explainshell_tests", l, **kwargs
+        )
 
     def test(self):
         m = self._getmanager(["tar.1.gz"])
         m.run()
 
-        self.assertRaises(errors.ProgramDoesNotExist, m.store.findmanpage, "tar.2")
+        self.assertRaises(
+            errors.ProgramDoesNotExist, m.store.findmanpage, "tar.2"
+        )
         mp = m.store.findmanpage("tar")[0]
         self.assertEqual(mp.source, "tar.1.gz")
         self.assertEqual(mp.name, "tar")
@@ -25,7 +29,9 @@ class test_manager(unittest.TestCase):
         self.assertEqual(len(mp.paragraphs), 154)
         self.assertEqual(len(mp.options), 134)
         self.assertTrue(mp.find_option("-v"))
-        self.assertEqual(mp.synopsis, "The GNU version of the tar archiving utility")
+        self.assertEqual(
+            mp.synopsis, "The GNU version of the tar archiving utility"
+        )
 
         self.assertTrue(mp.partialmatch)  # fixer is working
 
@@ -61,7 +67,9 @@ class test_manager(unittest.TestCase):
         "https://github.com/idank/explainshell/pull/303#issuecomment-1272387073"
     )
     def test_aliases(self):
-        m = self._getmanager(["lsbcpp.1.gz", "tar.1.gz", "bsdtar.1.gz", "basket.1.gz"])
+        m = self._getmanager(
+            ["lsbcpp.1.gz", "tar.1.gz", "bsdtar.1.gz", "basket.1.gz"]
+        )
         m.run()
 
         mp = m.store.findmanpage("lsbcpp")
@@ -82,13 +90,17 @@ class test_manager(unittest.TestCase):
         a, e = m.run()
         self.assertTrue(a)
         self.assertFalse(e)
-        self.assertEqual(m.store.mapping.count() if m.store.mapping is not None else 0, 1)
+        self.assertEqual(
+            m.store.mapping.count() if m.store.mapping is not None else 0, 1
+        )
         self.assertEqual(len(list(m.store)), 1)
 
         a, e = m.run()
         self.assertFalse(a)
         self.assertTrue(e)
-        self.assertEqual(m.store.mapping.count() if m.store.mapping is not None else 0, 1)
+        self.assertEqual(
+            m.store.mapping.count() if m.store.mapping is not None else 0, 1
+        )
         self.assertEqual(len(list(m.store)), 1)
 
         m = manager.manager(
@@ -100,7 +112,9 @@ class test_manager(unittest.TestCase):
         a, e = m.run()
         self.assertTrue(a)
         self.assertFalse(e)
-        self.assertEqual(m.store.mapping.count() if m.store.mapping is not None else 0, 1)
+        self.assertEqual(
+            m.store.mapping.count() if m.store.mapping is not None else 0, 1
+        )
         self.assertEqual(len(list(m.store)), 1)
 
         m.store.verify()
@@ -140,7 +154,9 @@ class test_manager(unittest.TestCase):
             os.path.join(config.MANPAGEDIR, "8", "node.8.gz"),
         ]
         m = manager.manager(config.MONGO_URI, "explainshell_tests", pages)
-        self._extracted_from_test_samename_samesection_7(m, "node", "node.8", "8")
+        self._extracted_from_test_samename_samesection_7(
+            m, "node", "node.8", "8"
+        )
 
     def test_samename_samesection(self):
         m = self._getmanager(["xargs.1.gz", "xargs.1posix.gz"])

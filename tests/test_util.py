@@ -1,5 +1,13 @@
 import unittest
-from explainshell.util import consecutive, groupcontinuous, toposorted, pairwise, peekable, namesection, propertycache
+from explainshell.util import (
+    consecutive,
+    groupcontinuous,
+    toposorted,
+    pairwise,
+    peekable,
+    namesection,
+    propertycache,
+)
 
 
 class TestUtil(unittest.TestCase):
@@ -34,7 +42,7 @@ class TestUtil(unittest.TestCase):
 
     def test_toposorted_with_dependencies(self):
         graph = [1, 2, 3]
-        parents = lambda x: [x-1] if x > 1 else []
+        parents = lambda x: [x - 1] if x > 1 else []
         result = toposorted(graph, parents)
         self.assertEqual(result, [1, 2, 3])
 
@@ -65,7 +73,7 @@ class TestUtil(unittest.TestCase):
             @propertycache
             def expensive_property(self):
                 return "computed_value"
-        
+
         obj = TestClass()
         result1 = obj.expensive_property
         result2 = obj.expensive_property

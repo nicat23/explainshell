@@ -11,5 +11,6 @@ class TestUtilComplete(unittest.TestCase):
     def test_peekable_iter(self):
         # Test the __iter__ method return (line 114)
         from explainshell.util import peekable
+
         it = peekable(iter([1, 2, 3]))
         self.assertIs(iter(it), it)

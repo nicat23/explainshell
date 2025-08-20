@@ -79,7 +79,11 @@ _replacementsprefix = [
     ("\xe2\x80\xe2\x80\x93", None, True),  # en dash
     ("\xe2\x80\xe2\x80\xb2", None, False),  # prime
     ("\xe2\x88\xe2\x88\xbc", None, False),  # tilde operator
-    ("\xe2\x86\xe2\x86\xb5", None, False),  # downwards arrow with corner leftwards
+    (
+        "\xe2\x86\xe2\x86\xb5",
+        None,
+        False,
+    ),  # downwards arrow with corner leftwards
     ("\xef\xbf\xef\xbf\xbd", None, False),  # replacement char
 ]
 
@@ -143,7 +147,9 @@ def _parsetext(lines):
                     section = " ".join(inside)[:-1]
             if not foundsection:
                 if not l.strip() and paragraphlines:
-                    yield store.paragraph(i, "\n".join(paragraphlines), section, False)
+                    yield store.paragraph(
+                        i, "\n".join(paragraphlines), section, False
+                    )
                     i += 1
                     paragraphlines = []
                 elif l.strip():
@@ -194,16 +200,22 @@ class manpage(object):
             urllib.parse.urlencode({"local": os.path.abspath(self.path)}),
         ]
         logger.info("executing %r", " ".join(cmd))
-        self._text = subprocess.check_output(cmd, stderr=devnull, env=ENV).decode('utf-8', errors='replace')
+        self._text = subprocess.check_output(
+            cmd, stderr=devnull, env=ENV
+        ).decode("utf-8", errors="replace")
         try:
-            self.synopsis = subprocess.check_output(
-                ["lexgrog", self.path], stderr=devnull
-            ).decode('utf-8', errors='replace').rstrip()
+            self.synopsis = (
+                subprocess.check_output(["lexgrog", self.path], stderr=devnull)
+                .decode("utf-8", errors="replace")
+                .rstrip()
+            )
         except subprocess.CalledProcessError:
             logger.error("failed to extract synopsis for %s", self.name)
 
     def parse(self):
-        text_lines = [] if self._text is None else self._text.splitlines()[7:-3]
+        text_lines = (
+            [] if self._text is None else self._text.splitlines()[7:-3]
+        )
         self.paragraphs = list(_parsetext(text_lines))
         if not self.paragraphs:
             raise errors.EmptyManpage(self.shortpath)

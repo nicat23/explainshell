@@ -19,8 +19,8 @@ def get_features(paragraph):
     feats["is_indented"] = features.is_indented(ptext)
     feats["par_length"] = features.par_length(ptext)
     for w in ("=", "--", "[", "|", ","):
-        feats[f"first_line_contains_{w}"] = (
-            features.first_line_contains(ptext, w)
+        feats[f"first_line_contains_{w}"] = features.first_line_contains(
+            ptext, w
         )
     feats["first_line_length"] = features.first_line_length(ptext)
     feats["first_line_word_count"] = features.first_line_word_count(ptext)
@@ -93,10 +93,20 @@ class classifier(object):
             # if label != observed:
             #    print 'label:', label, 'observed:', observed, feats
 
-        print("pos precision:", nltk.metrics.precision(refsets[True], testsets[True]))
-        print("pos recall:", nltk.metrics.recall(refsets[True], testsets[True]))
-        print("neg precision:", nltk.metrics.precision(refsets[False], testsets[False]))
-        print("neg recall:", nltk.metrics.recall(refsets[False], testsets[False]))
+        print(
+            "pos precision:",
+            nltk.metrics.precision(refsets[True], testsets[True]),
+        )
+        print(
+            "pos recall:", nltk.metrics.recall(refsets[True], testsets[True])
+        )
+        print(
+            "neg precision:",
+            nltk.metrics.precision(refsets[False], testsets[False]),
+        )
+        print(
+            "neg recall:", nltk.metrics.recall(refsets[False], testsets[False])
+        )
 
         if self.classifier is not None:
             print(self.classifier.show_most_informative_features(10))
@@ -113,7 +123,9 @@ class classifier(object):
 
                 if option and certainty >= config.CLASSIFIER_CUTOFF:
                     logger.info(
-                        "classified %s (%f) as an option paragraph", item, certainty
+                        "classified %s (%f) as an option paragraph",
+                        item,
+                        certainty,
                     )
                     item.is_option = True
                     yield certainty, item
