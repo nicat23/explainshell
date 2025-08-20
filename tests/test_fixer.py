@@ -1,9 +1,7 @@
-from __future__ import absolute_import
 import unittest
 import copy
 
 from explainshell import fixer, options, store
-from six.moves import range
 
 
 class test_fixer(unittest.TestCase):

@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import unittest, os
 
 from explainshell import manager, config, store, errors
@@ -141,18 +140,19 @@ class test_manager(unittest.TestCase):
             os.path.join(config.MANPAGEDIR, "8", "node.8.gz"),
         ]
         m = manager.manager(config.MONGO_URI, "explainshell_tests", pages)
-        a, e = m.run()
-        self.assertEqual(len(a), 2)
-        self.assertEqual(len(m.store.findmanpage("node")), 2)
-        mps = m.store.findmanpage("node.8")
-        self.assertEqual(len(mps), 2)
-        self.assertEqual(mps[0].section, "8")
+        self._extracted_from_test_samename_samesection_7(m, "node", "node.8", "8")
 
     def test_samename_samesection(self):
         m = self._getmanager(["xargs.1.gz", "xargs.1posix.gz"])
+        self._extracted_from_test_samename_samesection_7(
+            m, "xargs", "xargs.1posix", "1posix"
+        )
+
+    # TODO Rename this here and in `test_samename` and `test_samename_samesection`
+    def _extracted_from_test_samename_samesection_7(self, m, arg1, arg2, arg3):
         a, e = m.run()
         self.assertEqual(len(a), 2)
-        self.assertEqual(len(m.store.findmanpage("xargs")), 2)
-        mps = m.store.findmanpage("xargs.1posix")
+        self.assertEqual(len(m.store.findmanpage(arg1)), 2)
+        mps = m.store.findmanpage(arg2)
         self.assertEqual(len(mps), 2)
-        self.assertEqual(mps[0].section, "1posix")
+        self.assertEqual(mps[0].section, arg3)

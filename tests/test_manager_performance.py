@@ -37,27 +37,24 @@ class TestManagerPerformance(unittest.TestCase):
 
     def test_findmulticommands_with_many_commands(self):
         """Test findmulticommands performance with many commands"""
-        with patch('explainshell.manager.store.store') as mock_store_class, \
-             patch('explainshell.manager.classifier.classifier') as mock_classifier_class:
+        with (patch('explainshell.manager.store.store') as mock_store_class, patch('explainshell.manager.classifier.classifier') as mock_classifier_class):
             
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
+
             # Create many commands with potential multicommands
             names_data = []
             for i in range(50):
-                names_data.append((f"id{i}", f"cmd{i}"))
-                names_data.append((f"id{i+50}", f"cmd{i}-sub"))
-            
+                names_data.extend(((f"id{i}", f"cmd{i}"), (f"id{i + 50}", f"cmd{i}-sub")))
             mock_store_instance.names.return_value = names_data
             mock_store_instance.mappings.return_value = []
-            
+
             mgr = manager.manager("localhost", "testdb", [])
-            
+
             start_time = time.time()
             mappings, multicommands = mgr.findmulticommands()
             execution_time = time.time() - start_time
-            
+
             # Should complete in reasonable time
             self.assertLess(execution_time, 2.0, "findmulticommands took too long")
             self.assertEqual(len(mappings), 50)  # Should find 50 multicommands
@@ -137,14 +134,13 @@ class TestManagerPerformance(unittest.TestCase):
 
     def test_repeated_operations_performance(self):
         """Test performance of repeated manager operations"""
-        with patch('explainshell.manager.store.store') as mock_store_class, \
-             patch('explainshell.manager.classifier.classifier') as mock_classifier_class:
+        with (patch('explainshell.manager.store.store') as mock_store_class, patch('explainshell.manager.classifier.classifier') as mock_classifier_class):
             
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
+
             mgr = manager.manager("localhost", "testdb", [])
-            
+
             # Create a mock manpage
             mock_manpage = Mock()
             mock_manpage.name = "test"
@@ -159,15 +155,15 @@ class TestManagerPerformance(unittest.TestCase):
             mock_manpage.paragraphs = mock_paragraphs
             mock_manpage.options = []
             mock_manpage.aliases = []
-            
+
             mock_store_instance.updatemanpage.return_value = mock_manpage
-            
+
             # Perform repeated edit operations
             start_time = time.time()
-            for i in range(50):
+            for _ in range(50):
                 mgr.edit(mock_manpage)
             execution_time = time.time() - start_time
-            
+
             # Should complete repeated operations quickly
             self.assertLess(execution_time, 1.0, "Repeated operations took too long")
 
@@ -258,29 +254,26 @@ class TestManagerStress(unittest.TestCase):
 
     def test_stress_findmulticommands(self):
         """Stress test findmulticommands with extreme data"""
-        with patch('explainshell.manager.store.store') as mock_store_class, \
-             patch('explainshell.manager.classifier.classifier') as mock_classifier_class:
+        with (patch('explainshell.manager.store.store') as mock_store_class, patch('explainshell.manager.classifier.classifier') as mock_classifier_class):
             
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
+
             # Create extreme number of commands
             names_data = []
             for i in range(500):
                 names_data.append((f"id{i}", f"cmd{i}"))
-                for j in range(5):  # 5 subcommands each
-                    names_data.append((f"id{i}_{j}", f"cmd{i}-sub{j}"))
-            
+                names_data.extend((f"id{i}_{j}", f"cmd{i}-sub{j}") for j in range(5))
             mock_store_instance.names.return_value = names_data
             mock_store_instance.mappings.return_value = []
-            
+
             mgr = manager.manager("localhost", "testdb", [])
-            
+
             try:
                 start_time = time.time()
                 mappings, multicommands = mgr.findmulticommands()
                 execution_time = time.time() - start_time
-                
+
                 # Should complete even with extreme data
                 self.assertLess(execution_time, 10.0, "Stress test took too long")
                 self.assertEqual(len(mappings), 2500)  # 500 * 5 subcommands

@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import os, subprocess, re, logging, collections, urllib.parse
 
 from explainshell import config, store, errors
@@ -204,14 +203,7 @@ class manpage(object):
             logger.error("failed to extract synopsis for %s", self.name)
 
     def parse(self):
-        if isinstance(self._text, str):
-            text_lines = self._text.splitlines()[7:-3]
-        elif isinstance(self._text, bytes):
-            text_lines = self._text.decode('utf-8', errors='replace').splitlines()[7:-3]
-        elif self._text is None:
-            text_lines = []
-        else:
-            raise TypeError(f"Unsupported type for self._text: {type(self._text)}")
+        text_lines = [] if self._text is None else self._text.splitlines()[7:-3]
         self.paragraphs = list(_parsetext(text_lines))
         if not self.paragraphs:
             raise errors.EmptyManpage(self.shortpath)

@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import unittest
 
 from explainshell import options, store, errors
@@ -99,16 +98,28 @@ class test_options(unittest.TestCase):
         options.extract(m)
         r = m.options
         self.assertEqual(len(r), 2)
-        self.assertEqual(r[0].text, p1.text)
-        self.assertEqual(r[0].short, [])
-        self.assertEqual(r[0].long, ["--test"])
-        self.assertEqual(r[0].expectsarg, True)
+        self._extracted_from_test_extract_10(r, 0, p1, "--test")
+        self._extracted_from_test_extract_10(r, 1, p3, "--foo-bar")
 
-        self.assertEqual(r[1].text, p3.text)
-        self.assertEqual(r[1].short, [])
-        self.assertEqual(r[1].long, ["--foo-bar"])
-        self.assertEqual(r[1].expectsarg, True)
+    # TODO Rename this here and in `test_extract`
+    def _extracted_from_test_extract_10(self, r, arg1, arg2, arg3):
+        self.assertEqual(r[arg1].text, arg2.text)
+        self.assertEqual(r[arg1].short, [])
+        self.assertEqual(r[arg1].long, [arg3])
+        self.assertEqual(r[arg1].expectsarg, True)
 
     def test_help(self):
         s = "\t-?, --help description"
         self.assertEqual(options.extract_option(s), (["-?"], ["--help"]))
+
+    def test_error_conditions(self):
+        # Test invalid input types
+        with self.assertRaises((TypeError, AttributeError)):
+            options.extract_option(None)
+        
+        # Test empty string
+        self.assertEqual(options.extract_option(""), ([], []))
+        
+        # Test malformed options
+        self.assertEqual(options.extract_option("---invalid"), ([], []))
+        self.assertEqual(options.extract_option("-"), ([], []))

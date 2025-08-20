@@ -1,3 +1,4 @@
+import contextlib
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 import tempfile
@@ -18,21 +19,17 @@ class TestManagerEdgeCases(unittest.TestCase):
 
     def test_manager_with_invalid_paths(self):
         """Test manager behavior with invalid file paths"""
-        with patch('explainshell.manager.store.store') as mock_store_class, \
-             patch('explainshell.manager.classifier.classifier') as mock_classifier_class:
+        with (patch('explainshell.manager.store.store') as mock_store_class, patch('explainshell.manager.classifier.classifier') as mock_classifier_class):
             
             mgr = manager.manager("localhost", "testdb", ["/nonexistent/file.gz"])
-            
+
             with patch('explainshell.manager.manpage.manpage') as mock_manpage_class:
                 mock_manpage_class.side_effect = FileNotFoundError("File not found")
-                
-                try:
+
+                with contextlib.suppress(FileNotFoundError):
                     added, exists = mgr.run()
                     self.assertEqual(added, [])
                     self.assertEqual(exists, [])
-                except FileNotFoundError:
-                    # Expected behavior for invalid paths
-                    pass
 
     def test_manager_with_keyboard_interrupt(self):
         """Test manager handling of KeyboardInterrupt"""

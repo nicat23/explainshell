@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from explainshell import util
 
 
@@ -17,7 +16,7 @@ def suggestions(matches, command):
             after = command[m["end"] :]
             newsuggestions = []
             for othermp in sorted(m["suggestions"], key=lambda mp: mp.section):
-                mid = "%s.%s" % (othermp.name, othermp.section)
+                mid = f"{othermp.name}.{othermp.section}"
                 newsuggestions.append(
                     {"cmd": "".join([before, mid, after]), "text": othermp.namesection}
                 )

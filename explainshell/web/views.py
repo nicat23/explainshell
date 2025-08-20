@@ -1,5 +1,4 @@
-from __future__ import absolute_import
-import logging, itertools, six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
+import logging, itertools, urllib.request, urllib.parse, urllib.error
 import markupsafe
 
 from flask import render_template, request, redirect
@@ -8,8 +7,6 @@ import bashlex.errors
 
 from explainshell import matcher, errors, util, store, config
 from explainshell.web import app, helpers
-import six
-from six.moves import range
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +55,7 @@ def explain():
         ) % e.args[0]
 
         return render_template("errors/error.html", title="error!", message=msg)
-    except:
+    except Exception:
         logger.error("uncaught exception trying to explain %r", command, exc_info=True)
         msg = "something went wrong... this was logged and will be checked"
         return render_template("errors/error.html", title="error!", message=msg)
@@ -71,15 +68,13 @@ def explainold(section, program):
 
     s = store.store("explainshell", config.MONGO_URI)
     if section is not None:
-        program = "%s.%s" % (program, section)
+        program = f"{program}.{section}"
 
     # keep links to old urls alive
     if "args" in request.args:
         args = request.args["args"]
-        command = "%s %s" % (program, args)
-        return redirect(
-            "/explain?cmd=%s" % six.moves.urllib.parse.quote_plus(command), 301
-        )
+        command = f"{program} {args}"
+        return redirect(f"/explain?cmd={urllib.parse.quote_plus(command)}", 301)
     else:
         try:
             mp, suggestions = explainprogram(program, s)
@@ -108,10 +103,7 @@ def explainprogram(program, store):
 
     suggestions = []
     for othermp in mps:
-        d = {
-            "text": othermp.namesection,
-            "link": "%s/%s" % (othermp.section, othermp.name),
-        }
+        d = {"text": othermp.namesection, "link": f"{othermp.section}/{othermp.name}"}
         suggestions.append(d)
     logger.info("suggestions: %s", suggestions)
     return mp, suggestions
@@ -128,36 +120,15 @@ def _makematch(start, end, match, commandclass, helpclass):
     }
 
 
-def explaincommand(command, store):
-    matcher_ = matcher.matcher(command, store)
-    groups = matcher_.match()
-    expansions = matcher_.expansions
-
-    shellgroup = groups[0]
-    commandgroups = groups[1:]
+def _process_group_results(group, texttoid, idstartpos, expansions, is_shell=False):
+    """Process results from a match group and return formatted matches."""
     matches = []
-
-    # save a mapping between the help text to its assigned id,
-    # we're going to reuse ids that have the same text
-    texttoid = {}
-
-    # remember where each assigned id has started in the source,
-    # we're going to use it later on to sort the help text by start
-    # position
-    idstartpos = {}
-
-    l = []
-    for m in shellgroup.results:
-        commandclass = shellgroup.name
+    for m in group.results:
+        commandclass = group.name
         helpclass = "help-%d" % len(texttoid)
-        text = m.text
-        if text:
-            # text is already a string in Python 3
-            pass
+        if text := m.text:
             helpclass = texttoid.setdefault(text, helpclass)
         else:
-            # unknowns in the shell group are possible when our parser left
-            # an unparsed remainder, see matcher._markunparsedunknown
             commandclass += " unknown"
             helpclass = ""
         if helpclass:
@@ -165,58 +136,56 @@ def explaincommand(command, store):
 
         d = _makematch(m.start, m.end, m.match, commandclass, helpclass)
         formatmatch(d, m, expansions)
+        matches.append(d)
+    return matches
 
-        l.append(d)
-    matches.append(l)
-
-    for commandgroup in commandgroups:
-        l = []
-        for m in commandgroup.results:
-            commandclass = commandgroup.name
-            helpclass = "help-%d" % len(texttoid)
-            text = m.text
-            if text:
-                # text is already a string in Python 3
-                pass
-                helpclass = texttoid.setdefault(text, helpclass)
-            else:
-                commandclass += " unknown"
-                helpclass = ""
-            if helpclass:
-                idstartpos.setdefault(helpclass, m.start)
-
-            d = _makematch(m.start, m.end, m.match, commandclass, helpclass)
-            formatmatch(d, m, expansions)
-
-            l.append(d)
-
-        d = l[0]
+def _add_command_metadata(matches, commandgroup):
+    """Add command metadata to the first match in a command group."""
+    if matches:
+        d = matches[0]
         d["commandclass"] += " simplecommandstart"
         if commandgroup.manpage:
             d["name"] = commandgroup.manpage.name
             d["section"] = commandgroup.manpage.section
             if "." not in d["match"]:
-                d["match"] = "%s(%s)" % (d["match"], d["section"])
+                d["match"] = f'{d["match"]}({d["section"]})'
             d["suggestions"] = commandgroup.suggestions
             d["source"] = commandgroup.manpage.source[:-5]
-        matches.append(l)
 
-    matches = list(itertools.chain.from_iterable(matches))
+def explaincommand(command, store):
+    matcher_ = matcher.matcher(command, store)
+    groups = matcher_.match()
+    expansions = matcher_.expansions
+
+    texttoid = {}
+    idstartpos = {}
+    
+    # Process shell group
+    shell_matches = _process_group_results(groups[0], texttoid, idstartpos, expansions, True)
+    all_matches = [shell_matches]
+    
+    # Process command groups
+    for commandgroup in groups[1:]:
+        cmd_matches = _process_group_results(commandgroup, texttoid, idstartpos, expansions)
+        _add_command_metadata(cmd_matches, commandgroup)
+        all_matches.append(cmd_matches)
+
+    matches = list(itertools.chain.from_iterable(all_matches))
     helpers.suggestions(matches, command)
-
-    # _checkoverlaps(matcher_.s, matches)
     matches.sort(key=lambda d: d["start"])
 
+    # Add spacing between matches
     it = util.peekable(iter(matches))
     while it.hasnext():
         m = next(it)
         spaces = 0
-        if it.hasnext():
-            spaces = it.peek()["start"] - m["end"]
-        m["spaces"] = " " * spaces
+        if it.hasnext() and (peeked := it.peek()) and m:
+            if isinstance(peeked, dict) and isinstance(m, dict):
+                spaces = peeked.get("start", 0) - m.get("end", 0)
+        if isinstance(m, dict):
+            m["spaces"] = " " * max(0, spaces)
 
-    helptext = sorted(six.iteritems(texttoid), key=lambda k_v: idstartpos[k_v[1]])
-
+    helptext = sorted(texttoid.items(), key=lambda k_v: idstartpos[k_v[1]])
     return matches, helptext
 
 
@@ -224,15 +193,9 @@ def formatmatch(d, m, expansions):
     """populate the match field in d by escaping m.match and generating
     links to any command/process substitutions"""
 
-    # save us some work later: do any expansions overlap
-    # the current match?
-    hassubsinmatch = False
-
-    for start, end, kind in expansions:
-        if m.start <= start and end <= m.end:
-            hassubsinmatch = True
-            break
-
+    hassubsinmatch = any(
+        m.start <= start and end <= m.end for start, end, kind in expansions
+    )
     # if not, just escape the current match
     if not hassubsinmatch:
         d["match"] = markupsafe.escape(m.match)
@@ -285,7 +248,7 @@ def _substitutionmarkup(cmd):
     >>> _substitutionmarkup('cat <&3')
     '<a href="/explain?cmd=cat+%3C%263" title="Zoom in to nested command">cat <&3</a>'
     """
-    encoded = six.moves.urllib.parse.urlencode({"cmd": cmd})
+    encoded = urllib.parse.urlencode({"cmd": cmd})
     return (
         '<a href="/explain?{query}" title="Zoom in to nested command">{cmd}' "</a>"
     ).format(cmd=cmd, query=encoded)

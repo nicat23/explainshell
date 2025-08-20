@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import os
 
 _currdir = os.path.dirname(os.path.dirname(__file__))

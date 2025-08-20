@@ -6,7 +6,6 @@ unfortunately the bash section for builtins isn't written in a way
 explainshell can understannd, so we have to resort to manually
 writing these down and adding them.'''
 
-from __future__ import absolute_import
 import textwrap
 from explainshell import store, config
 sp = store.paragraph

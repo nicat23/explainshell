@@ -45,28 +45,28 @@ def run_manager_tests():
         descriptions=True,
         failfast='--failfast' in sys.argv
     )
-    
+
     result = runner.run(suite)
-    
+
     # Print summary
     print(f"\n{'='*60}")
-    print(f"Manager Test Suite Summary")
+    print("Manager Test Suite Summary")
     print(f"{'='*60}")
     print(f"Tests run: {result.testsRun}")
     print(f"Failures: {len(result.failures)}")
     print(f"Errors: {len(result.errors)}")
     print(f"Skipped: {len(result.skipped) if hasattr(result, 'skipped') else 0}")
-    
+
     if result.failures:
         print(f"\nFailures:")
         for test, traceback in result.failures:
             print(f"  - {test}")
-    
+
     if result.errors:
         print(f"\nErrors:")
         for test, traceback in result.errors:
             print(f"  - {test}")
-    
+
     return result.wasSuccessful()
 
 

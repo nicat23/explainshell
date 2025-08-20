@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import unittest, os, subprocess
 
 from explainshell import manpage, store

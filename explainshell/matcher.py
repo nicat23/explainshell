@@ -69,8 +69,11 @@ class matcher(bashlex.ast.nodevisitor):
         # show up as unknown or be taken from the db
         self.functions = set()
         
-        # flag to track if we're currently processing a redirection
-        self._in_redirection = False
+        # track word nodes that have been processed as commands to avoid double processing
+        self.processed_command_words = set()
+        
+        # track positions that are part of redirect outputs to exclude from command processing
+        self.redirect_output_positions = set()
 
     def _generatecommandgroupname(self):
         existing = len([g for g in self.groups if g.name.startswith("command")])
@@ -164,15 +167,17 @@ class matcher(bashlex.ast.nodevisitor):
             matchresult(n.pos[0], n.pos[1], "\n\n".join(helptext), None)
         )
 
-        # the output might contain a wordnode, visiting it will confuse the
-        # matcher who'll think it's an argument, instead visit the expansions
-        # directly, if we have any
+        # track redirect output positions to exclude from command processing
         if isinstance(output, bashlex.ast.node):
-            self._in_redirection = True
+            if pos := getattr(output, 'pos', None):
+                # mark the output word position as part of redirect
+                self.redirect_output_positions.add((pos[0], pos[1]))
+
             if output_parts := getattr(output, 'parts', None):
                 for part in output_parts:
-                    self.visit(part)
-            self._in_redirection = False
+                    # only visit expansions, not the word nodes themselves
+                    if part.kind in ('commandsubstitution', 'processsubstitution', 'parameter', 'tilde'):
+                        self.visit(part)
 
         return None
 
@@ -188,11 +193,11 @@ class matcher(bashlex.ast.nodevisitor):
             logger.info("no words found in command (probably contains only redirects)")
             return
 
-        # Defensive: ensure each part has 'parts' attribute if needed
+        # Check if the first word has expansions (like command substitution)
         wordnode = parts[idxwordnode]
-        if not hasattr(wordnode, "parts"):
-            wordnode.parts = []
-
+        wordnode_parts = getattr(wordnode, 'parts', [])
+        if wordnode_parts:
+            return self._extracted_from_visitcommand_20(node, parts)
         # check if this refers to a previously defined function
         if wordnode.word in self.functions:
             logger.info(
@@ -234,7 +239,30 @@ class matcher(bashlex.ast.nodevisitor):
             # we're done with this commandnode, don't visit its children
             return
 
+        # track the command word to avoid double processing
+        self.processed_command_words.add(id(wordnode))
+
+        # start the command - this will handle the command word
         self.startcommand(node, parts, None)
+
+    # TODO Rename this here and in `visitcommand`
+    def _extracted_from_visitcommand_20(self, node, parts):
+        mg = matchgroup(self._generatecommandgroupname())
+        mg.manpage = None
+        mg.suggestions = None
+        self.groups.append(mg)
+        self.groupstack.append((node, mg, None))
+
+        # add the entire command as one unknown match
+        start_pos = node.pos[0]
+        end_pos = node.pos[1]
+        mg.results.append(matchresult(start_pos, end_pos, None, None))
+
+        # mark all parts as processed to prevent double processing
+        for part in parts:
+            if part.kind == "word":
+                self.processed_command_words.add(id(part))
+        return
 
     def visitfor(self, node, parts):
         self.compoundstack.append("for")
@@ -282,6 +310,9 @@ class matcher(bashlex.ast.nodevisitor):
                 logger.warning("compound stack is empty when trying to pop for %r", n.kind)
 
     def startcommand(self, commandnode, parts, endword, addgroup=True):
+        # filter out redirect nodes from parts - they should be handled separately
+        parts = [part for part in parts if part.kind != "redirect"]
+        
         logger.info(
             "startcommand commandnode=%r parts=%r, endword=%r, addgroup=%s",
             commandnode,
@@ -290,7 +321,8 @@ class matcher(bashlex.ast.nodevisitor):
             addgroup,
         )
         idxwordnode = bashlex.ast.findfirstkind(parts, "word")
-        assert idxwordnode != -1
+        if idxwordnode == -1:
+            return False
 
         wordnode = parts[idxwordnode]
         if hasattr(wordnode, 'parts') and wordnode.parts:
@@ -366,6 +398,10 @@ class matcher(bashlex.ast.nodevisitor):
                 startpos, endpos, manpage.synopsis or helpconstants.NOSYNOPSIS, None
             )
         )
+        
+        # reset option state when starting a new command
+        self._prevoption = self._currentoption = None
+        
         return True
 
     # TODO Rename this here and in `startcommand`
@@ -389,12 +425,12 @@ class matcher(bashlex.ast.nodevisitor):
         substart = 2 if kind == "$" else 1
 
         # start the expansion after the $( or `
-        self.expansions.append(
-            matchwordexpansion(n.pos[0] + substart, n.pos[1] - 1, "substitution")
-        )
+        expansion = matchwordexpansion(n.pos[0] + substart, n.pos[1] - 1, "substitution")
+        if expansion not in self.expansions:
+            self.expansions.append(expansion)
 
-        # do not try to match the child nodes
-        return
+        # do not try to match the child nodes - return None to prevent visiting children
+        return None
 
     def visitprocesssubstitution(self, n, command):
         # don't include opening <( and closing )
@@ -412,8 +448,12 @@ class matcher(bashlex.ast.nodevisitor):
         )
 
     def visitword(self, n, word):
-        # if we're processing a word inside a redirection, don't add it to command groups
-        if self._in_redirection:
+        # skip word nodes that have already been processed as commands
+        if id(n) in self.processed_command_words:
+            return
+            
+        # skip word nodes that are part of redirect outputs
+        if (n.pos[0], n.pos[1]) in self.redirect_output_positions:
             return
             
         def attemptfuzzy(chars):
@@ -712,29 +752,33 @@ class matcher(bashlex.ast.nodevisitor):
                 parsed[i] = True
 
         # mark expansion ranges as parsed to avoid duplicating them
+        # sourcery skip: this intentionally prevents duplicate unknowns
         for start, end, _ in self.expansions:
             for i in range(start, end):
                 parsed[i] = True
 
-        for i in range(len(parsed)):
-            c = self.s[i]
-            # whitespace is always 'unparsed'
-            if c.isspace():
-                parsed[i] = True
-
-            # the parser ignores comments but we can use a trick to see if this
-            # starts a comment and is beyond the ending index of the parsed
-            # portion of the inpnut
-            if c == "#":
-                # For comment-only strings, bashlex may not generate a proper AST
-                # so we handle comments specially
-                comment = matchresult(i, len(parsed), helpconstants.COMMENT, None)
-                self.groups[0].results.append(comment)
-                break
-
-            if not parsed[i]:
-                # add unparsed results to the 'shell' group
-                self.groups[0].results.append(self.unknown(c, i, i + 1))
+        # find unparsed ranges and add them as unknown matches
+        i = 0
+        while i < len(parsed):
+            if not parsed[i] and not self.s[i].isspace():
+                # found start of unparsed range
+                start = i
+                
+                # handle comments specially
+                if self.s[i] == "#":
+                    comment = matchresult(i, len(parsed), helpconstants.COMMENT, None)
+                    self.groups[0].results.append(comment)
+                    break
+                
+                # find end of unparsed range
+                while i < len(parsed) and not parsed[i] and not self.s[i].isspace():
+                    i += 1
+                
+                # add the unparsed range as unknown to shell group
+                unknown_text = self.s[start:i]
+                self.groups[0].results.append(self.unknown(unknown_text, start, i))
+            else:
+                i += 1
 
         # there are no overlaps, so sorting by the start is enough
         self.groups[0].results.sort(key=lambda mr: mr.start)

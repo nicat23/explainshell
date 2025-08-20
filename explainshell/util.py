@@ -1,7 +1,5 @@
-from __future__ import absolute_import
 import itertools
 from operator import itemgetter
-# Python 3: map and zip are built-in and return iterators by default
 
 
 def consecutive(l, fn):

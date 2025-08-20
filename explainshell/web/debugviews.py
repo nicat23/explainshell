@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import logging
 
 from flask import render_template, request, abort, redirect, url_for, json
@@ -17,11 +16,9 @@ def debug():
         synopsis = ""
         if mp.synopsis:
             synopsis = mp.synopsis[:20]
-        dd = {"name": mp.name, "synopsis": synopsis}
         l = []
-        for o in mp.options:
-            l.append(str(o))
-        dd["options"] = ", ".join(l)
+        l.extend(str(o) for o in mp.options)
+        dd = {"name": mp.name, "synopsis": synopsis, "options": ", ".join(l)}
         d["manpages"].append(dd)
     d["manpages"].sort(key=lambda d: d["name"].lower())
     return render_template("debug.html", d=d)
@@ -37,43 +34,41 @@ def _convertvalue(value):
     return False
 
 
+def _process_paragraphs(paragraphs_data):
+    mparagraphs = []
+    for d in paragraphs_data:
+        short = [s.strip() for s in d["short"]]
+        long = [s.strip() for s in d["long"]]
+        expectsarg = _convertvalue(d["expectsarg"])
+        nestedcommand = _convertvalue(d["nestedcommand"])
+        
+        # Only allow bool for nestedcommand, as required by store.option
+        if isinstance(nestedcommand, list):
+            nestedcommand = bool(nestedcommand)
+        elif isinstance(nestedcommand, str):
+            nestedcommand = bool(nestedcommand.strip())
+        elif nestedcommand is not True and nestedcommand is not False:
+            logger.error("nestedcommand %r must be a boolean, string, or list", nestedcommand)
+            abort(503)
+            
+        p = store.paragraph(d["idx"], d["text"], d["section"], d["is_option"])
+        if d["is_option"] and (short or long or d["argument"]):
+            p = store.option(p, short, long, expectsarg, d["argument"] or None, nestedcommand)
+        mparagraphs.append(p)
+    return mparagraphs
+
 @app.route("/debug/tag/<source>", methods=["GET", "POST"])
 def tag(source):
     mngr = manager.manager(config.MONGO_URI, "explainshell", [], False, False)
-    s = mngr.store
-    m = s.findmanpage(source)[0]
+    m = mngr.store.findmanpage(source)[0]
     assert m
 
     if "paragraphs" in request.form:
         paragraphs = json.loads(request.form["paragraphs"])
-        mparagraphs = []
-        for d in paragraphs:
-            idx = d["idx"]
-            text = d["text"]
-            section = d["section"]
-            short = [s.strip() for s in d["short"]]
-            long = [s.strip() for s in d["long"]]
-            expectsarg = _convertvalue(d["expectsarg"])
-            nestedcommand = _convertvalue(d["nestedcommand"])
-            if isinstance(nestedcommand, str):
-                nestedcommand = [nestedcommand]
-            elif nestedcommand is True:
-                logger.error("nestedcommand %r must be a string or list", nestedcommand)
-                abort(503)
-            argument = d["argument"]
-            if not argument:
-                argument = None
-            p = store.paragraph(idx, text, section, d["is_option"])
-            if d["is_option"] and (short or int or argument):
-                p = store.option(p, short, int, expectsarg, argument, nestedcommand)
-            mparagraphs.append(p)
-
-        if request.form.get("nestedcommand", "").lower() == "true":
-            m.nestedcommand = True
-        else:
-            m.nestedcommand = False
-        m = mngr.edit(m, mparagraphs)
-        if m:
+        mparagraphs = _process_paragraphs(paragraphs)
+        m.nestedcommand = request.form.get("nestedcommand", "").lower() == "true"
+        
+        if m := mngr.edit(m, mparagraphs):
             return redirect(url_for("explain", cmd=m.name))
         else:
             abort(503)
@@ -84,6 +79,5 @@ def tag(source):
                 if isinstance(p.expectsarg, list):
                     p.expectsarg = ", ".join(p.expectsarg)
                 if isinstance(p.nestedcommand, list):
-                    p.nestedcommand = ", ".join(p.nestedcommand)
-
+                    p.nestedcommand = bool(p.nestedcommand)
         return render_template("tagger.html", m=m)
