@@ -20,7 +20,7 @@ def consecutive(l: List[T], fn: Callable[[T], bool]) -> Iterator[List[T]]:
     [[1], [2, 4]]
     >>> list(consecutive([1, 2, 4, 5, 7, 8, 10], even))
     [[1], [2, 4], [5], [7], [8, 10]]
-    '''
+    """
     it = iter(l)
     ll = []
     try:
@@ -43,7 +43,7 @@ def groupcontinuous(l: List[int], key: Optional[Callable[[int], int]] = None) ->
     [[1, 2], [4, 5], [7, 8], [10]]
     >>> list(groupcontinuous(range(5)))
     [[0, 1, 2, 3, 4]]
-    '''
+    """
     if key is None:
         key = lambda x: x
     # Python 3: unpacking in lambda parameters is not supported
@@ -67,7 +67,7 @@ def toposorted(graph: List[T], parents: Callable[[T], List[T]]) -> List[T]:
             return
         for parent in parents(v):
             if parent is top:
-                raise ValueError('graph is cyclical', graph)
+                raise ValueError("graph is cyclical", graph)
             use(parent, v)
         used.add(id(v))
         result.append(v)
@@ -75,6 +75,7 @@ def toposorted(graph: List[T], parents: Callable[[T], List[T]]) -> List[T]:
     for v in graph:
         use(v, v)
     return result
+
 
 def pairwise(iterable):
     """Return successive overlapping pairs taken from the input iterable."""
@@ -100,7 +101,8 @@ class peekable:
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
     StopIteration
-    '''
+    """
+
     def __init__(self, it):
         self.it = iter(it)
         self._peeked = False

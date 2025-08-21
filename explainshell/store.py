@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional, Tuple, Iterator, NamedTuple
 
 from explainshell import errors, util, helpconstants, config
 
+
 logger = logging.getLogger(__name__)
 
 class classifiermanpage(NamedTuple):
@@ -50,8 +51,8 @@ class paragraph:
 
     def __repr__(self) -> str:
         t = self.cleantext()
-        t = t[:min(20, t.find('\n'))].lstrip()
-        return '<paragraph %d, %s: %r>' % (self.idx, self.section, t)
+        t = t[: min(20, t.find("\n"))].lstrip()
+        return "<paragraph %d, %s: %r>" % (self.idx, self.section, t)
 
     def __eq__(self, other) -> bool:
         if not other:
@@ -59,7 +60,7 @@ class paragraph:
         return self.__dict__ == other.__dict__
 
 class option(paragraph):
-    '''a paragraph that contains extracted options
+    """a paragraph that contains extracted options
 
     short - a list of short options (-a, -b, ..)
     long - a list of long options (--a, --b)
@@ -78,7 +79,9 @@ class option(paragraph):
         self.expectsarg = expectsarg
         self.nestedcommand = nestedcommand
         if nestedcommand:
-            assert expectsarg, 'an option that can nest commands must expect an argument'
+            assert (
+                expectsarg
+            ), "an option that can nest commands must expect an argument"
 
     @property
     def opts(self) -> List[str]:
@@ -88,17 +91,23 @@ class option(paragraph):
     def from_store(cls, d: Dict[str, Any]) -> 'option':
         p = paragraph.from_store(d)
 
-        return cls(p, d['short'], d['long'], d['expectsarg'], d['argument'],
-                   d.get('nestedcommand'))
+        return cls(
+            p,
+            d["short"],
+            d["long"],
+            d["expectsarg"],
+            d["argument"],
+            d.get("nestedcommand"),
+        )
 
     def to_store(self) -> Dict[str, Any]:
         d = paragraph.to_store(self)
-        assert d['is_option']
-        d['short'] = self.short
-        d['long'] = self.long
-        d['expectsarg'] = self.expectsarg
-        d['argument'] = self.argument
-        d['nestedcommand'] = self.nestedcommand
+        assert d["is_option"]
+        d["short"] = self.short
+        d["long"] = self.long
+        d["expectsarg"] = self.expectsarg
+        d["argument"] = self.argument
+        d["nestedcommand"] = self.nestedcommand
         return d
 
     def __str__(self) -> str:
@@ -116,7 +125,7 @@ class manpage:
     paragraphs - a list of paragraphs (and options) that contain all of the text and options
         extracted from this man page
     aliases - a list of aliases found for this man page
-    partialmatch - allow interpreting options without a leading '-'
+    partialmatch - allow interpreting options without a leading "-"
     multicommand - consider sub commands when explaining a command with this man page,
         e.g. git -> git commit
     updated - whether this man page was manually updated
@@ -144,12 +153,12 @@ class manpage:
                     raise ValueError("paragraph %d isn't an option" % idx)
                 self.paragraphs[i] = paragraph(p.idx, p.text, p.section, False)
                 return
-        raise ValueError('idx %d not found' % idx)
+        raise ValueError("idx %d not found" % idx)
 
     @property
     def namesection(self) -> str:
         name, section = util.namesection(self.source[:-3])
-        return '%s(%s)' % (name, section)
+        return f"{name}({section})"
 
     @property
     def section(self) -> str:
@@ -198,9 +207,9 @@ class manpage:
     @staticmethod
     def from_store(d: Dict[str, Any]) -> 'manpage':
         paragraphs = []
-        for pd in d.get('paragraphs', []):
+        for pd in d.get("paragraphs", []):
             pp = paragraph.from_store(pd)
-            if pp.is_option == True and 'short' in pd:
+            if pp.is_option == True and "short" in pd:
                 pp = option.from_store(pd)
             paragraphs.append(pp)
 
@@ -211,9 +220,17 @@ class manpage:
         else:
             synopsis = helpconstants.NOSYNOPSIS
 
-        return manpage(d['source'], d['name'], synopsis, paragraphs,
-                       [tuple(x) for x in d['aliases']], d['partialmatch'],
-                       d['multicommand'], d['updated'], d.get('nestedcommand'))
+        return manpage(
+            d["source"],
+            d["name"],
+            synopsis,
+            paragraphs,
+            [tuple(x) for x in d["aliases"]],
+            bool(d.get("partialmatch", False)),
+            bool(d.get("multicommand", False)),
+            bool(d.get("updated", False)),
+            d.get("nestedcommand", False),
+        )
 
     @staticmethod
     def from_store_name_only(name: str, source: str) -> 'manpage':
@@ -234,9 +251,9 @@ class store:
         logger.info('creating store, db = %r, host = %r', db, host)
         self.connection = pymongo.MongoClient(host)
         self.db = self.connection[db]
-        self.classifier = self.db['classifier']
-        self.manpage = self.db['manpage']
-        self.mapping = self.db['mapping']
+        self.classifier = self.db["classifier"]
+        self.manpage = self.db["manpage"]
+        self.mapping = self.db["mapping"]
 
     def close(self) -> None:
         self.connection.close()  # Python 3: close() instead of disconnect()
@@ -246,9 +263,11 @@ class store:
         if not confirm:
             return
 
-        logger.info('dropping mapping, manpage, collections')
-        self.mapping.drop()
-        self.manpage.drop()
+        logger.info("dropping mapping, manpage, collections")
+        if self.mapping is not None:
+            self.mapping.drop()
+        if self.manpage is not None:
+            self.manpage.drop()
 
     def trainingset(self) -> Iterator[classifiermanpage]:
         for d in self.classifier.find():
@@ -283,8 +302,8 @@ class store:
         origname = name
 
         # don't try to look for a section if it's . (source)
-        if name != '.':
-            splitted = name.rsplit('.', 1)
+        if name != ".":
+            splitted = name.rsplit(".", 1)
             name = splitted[0]
             if len(splitted) > 1:
                 section = splitted[1]
@@ -299,11 +318,11 @@ class store:
         cursor = self.manpage.find({'_id': {'$in': list(dsts.keys())}}, {'name': 1, 'source': 1})
         cursor_count = self.manpage.count_documents({'_id': {'$in': list(dsts.keys())}})
         if cursor_count != len(dsts):
-            logger.error('one of %r mappings is missing in manpage collection '
+            logger.error('one of %r mappings is missing in manpage collection ' 
                          '(%d mappings, %d found)', dsts, len(dsts), cursor_count)
         results = [(d.pop('_id'), manpage.from_store_name_only(**d)) for d in cursor]
         results.sort(key=lambda x: dsts.get(x[0], 0), reverse=True)
-        logger.info('got %s', results)
+        logger.info("got %s", results)
         if section is not None:
             if len(results) > 1:
                 # Python 3: lambda parameters can't be unpacked
@@ -311,7 +330,9 @@ class store:
                 logger.info(r'sorting %r so %s is first', results, section)
             if not results[0][1].section == section:
                 raise errors.ProgramDoesNotExist(origname)
-            results.extend(self._discovermanpagesuggestions(results[0][0], results))
+            results.extend(
+                self._discovermanpagesuggestions(results[0][0], results)
+            )
 
         oid = results[0][0]
         results = [x[1] for x in results]
@@ -328,11 +349,13 @@ class store:
         skip = set([oid for oid, m in existing])
         cursor = self.mapping.find({'dst': oid})
         # find all srcs that point to oid
-        srcs = [d['src'] for d in cursor]
+        srcs = [d["src"] for d in cursor]
         # find all dsts of srcs
         suggestionoids = self.mapping.find({'src': {'$in': srcs}}, {'dst': 1})
         # remove already discovered
-        suggestionoids = [d['dst'] for d in suggestionoids if d['dst'] not in skip]
+        suggestionoids = [
+            d["dst"] for d in suggestionoids if d["dst"] not in skip
+        ]
         if not suggestionoids:
             return []
 
@@ -392,6 +415,8 @@ class store:
 
     def verify(self) -> Tuple[bool, List[str], List[Any]]:
         # check that everything in manpage is reachable
+        if self.mapping is None or self.manpage is None:
+            return False, [], []
         mappings = list(self.mapping.find())
         reachable = set([m['dst'] for m in mappings])
         # Python 3: projection parameter instead of fields
@@ -406,7 +431,7 @@ class store:
 
         notfound = reachable - manpages
         if notfound:
-            logger.error('mappings to inexisting manpages: %r', notfound)
+            logger.error("mappings to inexisting manpages: %r", notfound)
             ok = False
 
         return ok, unreachable, notfound

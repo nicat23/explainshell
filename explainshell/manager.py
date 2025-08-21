@@ -8,7 +8,10 @@ from typing import List, Tuple, Dict, Set, Optional, Any
 from explainshell import options, store, fixer, manpage, errors, util, config
 from explainshell.algo import classifier
 
-logger = logging.getLogger('explainshell.manager')
+# Python 3 only: use built-in input
+
+logger = logging.getLogger("explainshell.manager")
+
 
 class managerctx:
     def __init__(self, classifier, store, manpage):
@@ -32,7 +35,7 @@ class manager:
 
         self.store = store.store(dbname, dbhost)
 
-        self.classifier = classifier.classifier(self.store, 'bayes')
+        self.classifier = classifier.classifier(self.store, "bayes")
         self.classifier.train()
 
         if drop:
@@ -47,8 +50,13 @@ class manager:
         ctx.manpage.parse()
         assert len(ctx.manpage.paragraphs) > 1
 
-        ctx.manpage = store.manpage(ctx.manpage.shortpath, ctx.manpage.name,
-                ctx.manpage.synopsis, ctx.manpage.paragraphs, list(ctx.manpage.aliases))
+        ctx.manpage = store.manpage(
+            ctx.manpage.shortpath,
+            ctx.manpage.name,
+            ctx.manpage.synopsis,
+            ctx.manpage.paragraphs,
+            list(ctx.manpage.aliases),
+        )
         frunner.post_parse_manpage()
 
     def _classify(self, ctx: managerctx, frunner) -> None:
@@ -78,8 +86,7 @@ class manager:
         self._classify(ctx, frunner)
         self._extract(ctx, frunner)
 
-        m = self._write(ctx, frunner)
-        return m
+        return self._write(ctx, frunner)
 
     def edit(self, m: store.manpage, paragraphs: Optional[List[store.paragraph]] = None) -> store.manpage:
         ctx = self.ctx(m)
@@ -87,7 +94,7 @@ class manager:
 
         if paragraphs:
             m.paragraphs = paragraphs
-            frunner.disable('paragraphjoiner')
+            frunner.disable("paragraphjoiner")
             frunner.post_option_extraction()
         else:
             self._extract(ctx, frunner)
@@ -100,29 +107,29 @@ class manager:
         for path in self.paths:
             try:
                 m = manpage.manpage(path)
-                logger.info('handling manpage %s (from %s)', m.name, path)
-                try:
+                logger.info("handling manpage %s (from %s)", m.name, path)
+                with contextlib.suppress(errors.ProgramDoesNotExist):
                     mps = self.store.findmanpage(m.shortpath[:-3])
-                    mps = [mp for mp in mps if m.shortpath == mp.source]
-                    if mps:
+                    if mps := [mp for mp in mps if m.shortpath == mp.source]:
                         assert len(mps) == 1
                         mp = mps[0]
                         if not self.overwrite or mp.updated:
-                            logger.info('manpage %r already in the data store, not overwriting it', m.name)
+                            logger.info(
+                                "manpage %r already in the data store, not overwriting it",
+                                m.name,
+                            )
                             exists.append(m)
                             continue
-                except errors.ProgramDoesNotExist:
-                    pass
-
                 # the manpage is not in the data store; process and add it
                 ctx = self.ctx(m)
-                m = self.process(ctx)
-                if m:
+                if m := self.process(ctx):
                     added.append(m)
             except errors.EmptyManpage as e:  # Python 3: use 'as' syntax
                 logger.error('manpage %r is empty!', e.args[0])
             except ValueError:
-                logger.fatal('uncaught exception when handling manpage %s', path)
+                logger.fatal(
+                    "uncaught exception when handling manpage %s", path
+                )
             except KeyboardInterrupt:
                 raise
             except Exception:  # Python 3: catch all other exceptions explicitly
@@ -139,30 +146,30 @@ class manager:
         manpages = {}
         potential = []
         for _id, m in self.store.names():
-            if '-' in m:
-                potential.append((m.split('-'), _id))
+            if "-" in m:
+                potential.append((m.split("-"), _id))
             else:
                 manpages[m] = _id
 
-        mappings = set([x[0] for x in self.store.mappings()])
+        mappings = {x[0] for x in self.store.mappings()}
         mappingstoadd = []
         multicommands = {}
 
         for p, _id in potential:
-            if ' '.join(p) in mappings:
+            if " ".join(p) in mappings:
                 continue
             if p[0] in manpages:
-                mappingstoadd.append((' '.join(p), _id))
+                mappingstoadd.append((" ".join(p), _id))
                 multicommands[p[0]] = manpages[p[0]]
 
         for src, dst in mappingstoadd:
             self.store.addmapping(src, dst, 1)
-            logger.info('inserting mapping (multicommand) %s -> %s', src, dst)
+            logger.info("inserting mapping (multicommand) %s -> %s", src, dst)
 
         # Python 3: dict.items() instead of iteritems()
         for multicommand, _id in multicommands.items():
             self.store.setmulticommand(_id)
-            logger.info('making %r a multicommand', multicommand)
+            logger.info("making %r a multicommand", multicommand)
 
         return mappingstoadd, multicommands
 
@@ -184,7 +191,12 @@ def main(files: List[str], dbname: str, dbhost: str, overwrite: bool,
 
     for path in files:
         if os.path.isdir(path):
-            gzs.update([os.path.abspath(f) for f in glob.glob(os.path.join(path, '*.gz'))])
+            gzs.update(
+                [
+                    os.path.abspath(f)
+                    for f in glob.glob(os.path.join(path, "*.gz"))
+                ]
+            )
         else:
             gzs.add(os.path.abspath(path))
 

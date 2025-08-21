@@ -1,18 +1,20 @@
-FROM python:3.11
+FROM python:3.13-alpine
 
-RUN apt-get update \
-  && apt-get install make man-db -y \
-  && apt-get clean
+RUN addgroup -S appuser && adduser -S appuser -G appuser
 
-ADD ./requirements.txt /tmp/requirements.txt
+RUN apk add --no-cache make curl perl man-db
 
-RUN pip install --upgrade pip \
-  && python3 --version \
-  && pip install -r /tmp/requirements.txt \
-  && rm -rf ~/.cache/pip/*
-
-ADD ./ /opt/webapp/
 WORKDIR /opt/webapp
-EXPOSE 5000
 
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+RUN touch /opt/webapp/application.log && chown -R appuser:appuser /opt/webapp
+
+USER appuser
+
+HEALTHCHECK CMD curl -f http://localhost:5000/ || exit 1
+
+EXPOSE 5000
 CMD ["make", "serve"]

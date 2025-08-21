@@ -1,20 +1,26 @@
+# Development commands
+setup:
+	python3 -m venv .venv
+	.venv/bin/pip install --upgrade pip
+	.venv/bin/pip install -r requirements.txt
+
 serve:
-	python runserver.py
+	.venv/bin/python runserver.py
 
 test:
-	python -m pytest tests/ explainshell/ --doctest-modules --cov=explainshell
+	.venv/bin/python -m pytest tests/ explainshell/ --doctest-modules --cov=explainshell
 
 test-manager:
-	python -m pytest tests/test_manager_simple.py -v
+	.venv/bin/python -m pytest tests/test_manager_simple.py -v
 
 test-manager-full:
-	python -m pytest tests/test_manager_expanded.py tests/test_manager_edge_cases.py tests/test_manager_performance.py -v
+	.venv/bin/python -m pytest tests/test_manager_expanded.py tests/test_manager_edge_cases.py tests/test_manager_performance.py -v
 
 test-manager-suite:
-	python tests/test_manager_suite.py run-suite
+	.venv/bin/python tests/test_manager_suite.py run-suite
 
 test-manager-stress:
-	python tests/test_manager_suite.py run-suite --include-stress
+	.venv/bin/python tests/test_manager_suite.py run-suite --include-stress
 
 # Docker commands
 build:
@@ -37,7 +43,7 @@ db-dump:
 	docker compose exec db mongodump --archive --gzip --db explainshell > ./output.gz
 
 db-restore:
-	docker compose exec -T db mongorestore --archive --gzip --db explainshell 
+	docker compose exec -T db mongorestore --archive --gzip --db explainshell
 
 # Cleanup commands
 clean:
