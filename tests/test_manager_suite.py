@@ -6,27 +6,16 @@ import os
 def create_manager_test_suite():
     """Create a comprehensive test suite for manager.py"""
     # Import test modules only when needed
-    try:
-        from tests.test_manager_expanded import (
-            TestManagerExpanded,
-            TestManagerIntegration,
-        )
-        from tests.test_manager_edge_cases import TestManagerEdgeCases
-        from tests.test_manager_performance import (
-            TestManagerPerformance,
-            TestManagerStress,
-        )
-    except ImportError:
-        # Fallback for direct execution
-        from test_manager_expanded import (
-            TestManagerExpanded,
-            TestManagerIntegration,
-        )
-        from test_manager_edge_cases import TestManagerEdgeCases
-        from test_manager_performance import (
-            TestManagerPerformance,
-            TestManagerStress,
-        )
+    # Import test classes using relative imports
+    from .test_manager_expanded import (
+        TestManagerExpanded,
+        TestManagerIntegration,
+    )
+    from .test_manager_edge_cases import TestManagerEdgeCases
+    from .test_manager_performance import (
+        TestManagerPerformance,
+        TestManagerStress,
+    )
 
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()

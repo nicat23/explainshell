@@ -47,14 +47,14 @@ class test_manager(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(list(notfound), ["bar"])
 
-        if s.mapping is not None:
-            s.mapping.drop()
+        # Drop mapping if it exists
+        getattr(s.mapping, 'drop', lambda: None)()
         m.run()
         ok, unreachable, notfound = s.verify()
         self.assertTrue(ok)
 
-        if s.mapping is not None:
-            s.mapping.drop()
+        # Drop mapping if it exists
+        getattr(s.mapping, 'drop', lambda: None)()
         ok, unreachable, notfound = s.verify()
         self.assertEqual(list(unreachable), ["tar"])
 
@@ -90,17 +90,15 @@ class test_manager(unittest.TestCase):
         a, e = m.run()
         self.assertTrue(a)
         self.assertFalse(e)
-        self.assertEqual(
-            m.store.mapping.count() if m.store.mapping is not None else 0, 1
-        )
+        mapping_count = getattr(m.store.mapping, 'count', lambda: 0)()
+        self.assertEqual(mapping_count, 1)
         self.assertEqual(len(list(m.store)), 1)
 
         a, e = m.run()
         self.assertFalse(a)
         self.assertTrue(e)
-        self.assertEqual(
-            m.store.mapping.count() if m.store.mapping is not None else 0, 1
-        )
+        mapping_count = getattr(m.store.mapping, 'count', lambda: 0)()
+        self.assertEqual(mapping_count, 1)
         self.assertEqual(len(list(m.store)), 1)
 
         m = manager.manager(
@@ -112,9 +110,8 @@ class test_manager(unittest.TestCase):
         a, e = m.run()
         self.assertTrue(a)
         self.assertFalse(e)
-        self.assertEqual(
-            m.store.mapping.count() if m.store.mapping is not None else 0, 1
-        )
+        mapping_count = getattr(m.store.mapping, 'count', lambda: 0)()
+        self.assertEqual(mapping_count, 1)
         self.assertEqual(len(list(m.store)), 1)
 
         m.store.verify()

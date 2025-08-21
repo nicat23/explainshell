@@ -56,10 +56,8 @@ class TestManagerPerformance(unittest.TestCase):
 
             # Create many commands with potential multicommands
             names_data = []
-            for i in range(50):
-                names_data.extend(
-                    ((f"id{i}", f"cmd{i}"), (f"id{i + 50}", f"cmd{i}-sub"))
-                )
+            names_data = [(f"id{i}", f"cmd{i}") for i in range(50)] + \
+                        [(f"id{i + 50}", f"cmd{i}-sub") for i in range(50)]
             mock_store_instance.names.return_value = names_data
             mock_store_instance.mappings.return_value = []
 
@@ -102,13 +100,15 @@ class TestManagerPerformance(unittest.TestCase):
             # Create multiple manpages
             file_list = [f"test{i}.1.gz" for i in range(10)]
 
-            mock_manpages = []
-            for i, filename in enumerate(file_list):
+            def create_mock_manpage(i, filename):
                 mock_mp = Mock()
                 mock_mp.name = f"test{i}"
                 mock_mp.shortpath = filename
                 mock_mp.aliases = []
-                mock_manpages.append(mock_mp)
+                return mock_mp
+            
+            mock_manpages = [create_mock_manpage(i, filename) 
+                           for i, filename in enumerate(file_list)]
 
             mock_manpage_class.side_effect = mock_manpages
 
@@ -181,13 +181,14 @@ class TestManagerPerformance(unittest.TestCase):
             mock_manpage = Mock()
             mock_manpage.name = "test"
             # Create mock paragraphs with cleantext method
-            mock_paragraphs = []
-            for i in range(10):
+            def create_mock_paragraph(i):
                 p = Mock()
                 p.cleantext.return_value = f"test paragraph {i}"
                 p.is_option = True
                 p.idx = i
-                mock_paragraphs.append(p)
+                return p
+            
+            mock_paragraphs = [create_mock_paragraph(i) for i in range(10)]
             mock_manpage.paragraphs = mock_paragraphs
             mock_manpage.options = []
             mock_manpage.aliases = []
@@ -196,9 +197,11 @@ class TestManagerPerformance(unittest.TestCase):
 
             # Perform repeated edit operations
             start_time = time.time()
-            for _ in range(50):
-                mgr.edit(mock_manpage)
+            results = [mgr.edit(mock_manpage) for _ in range(50)]
             execution_time = time.time() - start_time
+            
+            # Verify all operations completed
+            self.assertEqual(len(results), 50)
 
             # Should complete repeated operations quickly
             self.assertLess(
@@ -241,19 +244,22 @@ class TestManagerPerformance(unittest.TestCase):
             ) as mock_manpage_class,
         ):
 
-            # Mix of successful and failing manpages
-            def manpage_side_effect(path):
-                if "fail" in path:
-                    from explainshell.errors import EmptyManpage
-
-                    raise EmptyManpage(path)
+            # Create separate mock objects for successful and failing cases
+            from explainshell.errors import EmptyManpage
+            
+            def create_success_mock(path):
                 mock_mp = Mock()
                 mock_mp.name = path.replace(".1.gz", "")
                 mock_mp.shortpath = path
                 mock_mp.aliases = []
                 return mock_mp
-
-            mock_manpage_class.side_effect = manpage_side_effect
+            
+            # Create mock responses for each file
+            success_mocks = [create_success_mock(f"test{i}.1.gz") for i in range(5)]
+            fail_exceptions = [EmptyManpage(f"fail{i}.1.gz") for i in range(5)]
+            
+            mock_responses = success_mocks + fail_exceptions
+            mock_manpage_class.side_effect = mock_responses
 
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
@@ -265,7 +271,7 @@ class TestManagerPerformance(unittest.TestCase):
 
             mock_store_instance.findmanpage.side_effect = mock_findmanpage
 
-            # Mix of good and bad files
+            # Mix of good and bad files (order matches mock_responses)
             file_list = [f"test{i}.1.gz" for i in range(5)] + [
                 f"fail{i}.1.gz" for i in range(5)
             ]
@@ -306,11 +312,8 @@ class TestManagerStress(unittest.TestCase):
             # Very large file list
             huge_file_list = [f"test{i}.1.gz" for i in range(1000)]
 
-            try:
-                mgr = manager.manager("localhost", "testdb", huge_file_list)
-                self.assertEqual(len(mgr.paths), 1000)
-            except MemoryError:
-                self.skipTest("Not enough memory for stress test")
+            mgr = manager.manager("localhost", "testdb", huge_file_list)
+            self.assertEqual(len(mgr.paths), 1000)
 
     def test_stress_findmulticommands(self):
         """Stress test findmulticommands with extreme data"""
@@ -325,29 +328,24 @@ class TestManagerStress(unittest.TestCase):
             mock_store_class.return_value = mock_store_instance
 
             # Create extreme number of commands
-            names_data = []
-            for i in range(500):
-                names_data.append((f"id{i}", f"cmd{i}"))
-                names_data.extend(
-                    (f"id{i}_{j}", f"cmd{i}-sub{j}") for j in range(5)
-                )
+            base_commands = [(f"id{i}", f"cmd{i}") for i in range(500)]
+            sub_commands = [(f"id{i}_{j}", f"cmd{i}-sub{j}") 
+                          for i in range(500) for j in range(5)]
+            names_data = base_commands + sub_commands
             mock_store_instance.names.return_value = names_data
             mock_store_instance.mappings.return_value = []
 
             mgr = manager.manager("localhost", "testdb", [])
 
-            try:
-                start_time = time.time()
-                mappings, multicommands = mgr.findmulticommands()
-                execution_time = time.time() - start_time
+            start_time = time.time()
+            mappings, multicommands = mgr.findmulticommands()
+            execution_time = time.time() - start_time
 
-                # Should complete even with extreme data
-                self.assertLess(
-                    execution_time, 10.0, "Stress test took too long"
-                )
-                self.assertEqual(len(mappings), 2500)  # 500 * 5 subcommands
-            except MemoryError:
-                self.skipTest("Not enough memory for stress test")
+            # Should complete even with extreme data
+            self.assertLess(
+                execution_time, 10.0, "Stress test took too long"
+            )
+            self.assertEqual(len(mappings), 2500)  # 500 * 5 subcommands
 
 
 if __name__ == "__main__":
