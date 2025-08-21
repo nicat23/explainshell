@@ -912,6 +912,70 @@ class TestViewsIntegration(unittest.TestCase):
         self.assertIn("c", match_str)
         self.assertIn("e", match_str)
 
+    def test_formatmatch_expansion_at_start(self):
+        """Test formatmatch with expansion starting at position 0"""
+        d = {"commandclass": "command"}
+        mock_match = Mock()
+        mock_match.match = "$(echo)test"
+        mock_match.start = 0
+        mock_match.end = 11
+        
+        # Expansion starts at beginning of match
+        expansions = [(0, 7, "substitution")]  # "$(echo)"
+        
+        views.formatmatch(d, mock_match, expansions)
+        
+        self.assertIn("hasexpansion", d["commandclass"])
+        match_str = str(d["match"])
+        self.assertIn("expansion-substitution", match_str)
+        # Should have remaining text after expansion
+        self.assertIn("test", match_str)
+
+    def test_formatmatch_expansion_with_prefix_text(self):
+        """Test formatmatch with text before expansion to cover i = relativestart + 1"""
+        d = {"commandclass": "command"}
+        mock_match = Mock()
+        mock_match.match = "prefix$(cmd)suffix"
+        mock_match.start = 5
+        mock_match.end = 19
+        
+        # Expansion in middle with prefix text
+        expansions = [(11, 16, "substitution")]  # "$(cmd)" at positions 6-11 relative to match start
+        
+        views.formatmatch(d, mock_match, expansions)
+        
+        self.assertIn("hasexpansion", d["commandclass"])
+        match_str = str(d["match"])
+        self.assertIn("prefix", match_str)
+        self.assertIn("expansion-substitution", match_str)
+        self.assertIn("suffix", match_str)
+
+    def test_process_group_results_with_is_shell_true(self):
+        """Test _process_group_results with is_shell=True parameter"""
+        mock_group = Mock()
+        mock_group.name = "shell"
+        
+        mock_result = Mock()
+        mock_result.text = "shell help"
+        mock_result.start = 0
+        mock_result.end = 4
+        mock_result.match = "test"
+        
+        mock_group.results = [mock_result]
+        
+        texttoid = {}
+        idstartpos = {}
+        expansions = []
+        
+        # Test with is_shell=True
+        matches = views._process_group_results(
+            mock_group, texttoid, idstartpos, expansions, is_shell=True
+        )
+        
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["commandclass"], "shell")
+        self.assertIn("shell help", texttoid)
+
 
 if __name__ == "__main__":
     unittest.main()
