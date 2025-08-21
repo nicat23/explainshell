@@ -488,6 +488,162 @@ class TestDebugViewsIntegration(unittest.TestCase):
                 self.assertEqual(len(d['manpages']), 0)
                 self.assertEqual(result, "empty debug page")
 
+    @patch('explainshell.web.debugviews.manager.manager')
+    @patch('explainshell.web.debugviews.abort')
+    def test_tag_manpage_not_found(self, mock_abort, mock_manager_class):
+        """Test tag route when manpage is not found"""
+        with self.app.test_request_context('/debug/tag/nonexistent.1'):
+            mock_manager = Mock()
+            mock_manager_class.return_value = mock_manager
+            mock_manager.store.findmanpage.return_value = []  # Empty result
+            
+            # This will cause IndexError on [0] access
+            with self.assertRaises(IndexError):
+                debugviews.tag("nonexistent.1")
+
+    @patch('explainshell.web.debugviews.store.paragraph')
+    @patch('explainshell.web.debugviews.store.option')
+    def test_process_paragraphs_option_no_argument(self, mock_option, mock_paragraph):
+        """Test _process_paragraphs with option but no argument"""
+        mock_p = Mock()
+        mock_paragraph.return_value = mock_p
+        mock_option.return_value = Mock()
+        
+        paragraphs_data = [{
+            "idx": 0,
+            "text": "-h option",
+            "section": "OPTIONS",
+            "is_option": True,
+            "short": ["-h"],
+            "long": [],
+            "expectsarg": "",
+            "nestedcommand": "",
+            "argument": ""  # Empty argument
+        }]
+        
+        debugviews._process_paragraphs(paragraphs_data)
+        
+        # Verify option created with None argument
+        mock_option.assert_called_once_with(
+            mock_p, ["-h"], [], False, None, False
+        )
+
+    @patch('explainshell.web.debugviews.store.paragraph')
+    @patch('explainshell.web.debugviews.logger')
+    @patch('explainshell.web.debugviews.abort')
+    def test_process_paragraphs_invalid_nestedcommand_type(self, mock_abort, mock_logger, mock_paragraph):
+        """Test _process_paragraphs with invalid nestedcommand type"""
+        mock_paragraph.return_value = Mock()
+        
+        # Test with integer - will fail in _convertvalue
+        paragraphs_data = [{
+            "idx": 0,
+            "text": "test",
+            "section": "TEST",
+            "is_option": False,
+            "short": [],
+            "long": [],
+            "expectsarg": "",
+            "nestedcommand": 42,  # Invalid type - will cause AttributeError
+            "argument": ""
+        }]
+        
+        # This will raise AttributeError in _convertvalue before reaching validation
+        with self.assertRaises(AttributeError):
+            debugviews._process_paragraphs(paragraphs_data)
+
+    @patch('explainshell.web.debugviews.store.paragraph')
+    @patch('explainshell.web.debugviews.logger')
+    @patch('explainshell.web.debugviews.abort')
+    @patch('explainshell.web.debugviews._convertvalue')
+    def test_process_paragraphs_nestedcommand_validation_error(self, mock_convert, mock_abort, mock_logger, mock_paragraph):
+        """Test _process_paragraphs nestedcommand validation with invalid converted value"""
+        mock_paragraph.return_value = Mock()
+        mock_convert.side_effect = [False, 42]  # expectsarg=False, nestedcommand=42 (invalid)
+        
+        paragraphs_data = [{
+            "idx": 0,
+            "text": "test",
+            "section": "TEST",
+            "is_option": False,
+            "short": [],
+            "long": [],
+            "expectsarg": "",
+            "nestedcommand": "invalid",
+            "argument": ""
+        }]
+        
+        debugviews._process_paragraphs(paragraphs_data)
+        
+        # Should log error and abort when nestedcommand is not bool/string/list
+        mock_logger.error.assert_called_once()
+        mock_abort.assert_called_once_with(503)
+
+    def test_convertvalue_false_string(self):
+        """Test _convertvalue with 'false' string"""
+        result = debugviews._convertvalue("false")
+        self.assertEqual(result, "false")  # Should return the string, not False
+        
+        result = debugviews._convertvalue("FALSE")
+        self.assertEqual(result, "FALSE")
+
+    def test_convertvalue_integer_error(self):
+        """Test _convertvalue with integer input causes AttributeError"""
+        with self.assertRaises(AttributeError):
+            debugviews._convertvalue(42)
+
+    def test_convertvalue_list_with_empty_strings(self):
+        """Test _convertvalue with list containing empty/whitespace strings"""
+        result = debugviews._convertvalue(["  ", "item", "", "  other  "])
+        self.assertEqual(result, ["", "item", "", "other"])
+
+    @patch('explainshell.web.debugviews.store.store')
+    def test_debug_route_manpage_no_synopsis(self, mock_store_class):
+        """Test debug route with manpage that has None synopsis"""
+        with self.app.test_request_context('/debug'):
+            mock_store = Mock()
+            mock_store_class.return_value = mock_store
+            
+            mock_mp = Mock()
+            mock_mp.name = "test"
+            mock_mp.synopsis = None  # None synopsis
+            mock_mp.options = []
+            
+            mock_store.__iter__ = Mock(return_value=iter([mock_mp]))
+            
+            with patch('explainshell.web.debugviews.render_template') as mock_render:
+                mock_render.return_value = "debug page"
+                
+                debugviews.debug()
+                
+                args, kwargs = mock_render.call_args
+                d = kwargs['d']
+                self.assertEqual(d['manpages'][0]['synopsis'], "")
+
+    @patch('explainshell.web.debugviews.manager.manager')
+    def test_tag_get_no_option_paragraphs(self, mock_manager_class):
+        """Test tag route GET with no option paragraphs"""
+        with self.app.test_request_context('/debug/tag/test.1'):
+            mock_manager = Mock()
+            mock_manager_class.return_value = mock_manager
+            
+            # Create regular paragraph (not option)
+            mock_paragraph = Mock()
+            # Don't set spec=store.option so isinstance check fails
+            
+            mock_manpage = Mock()
+            mock_manpage.paragraphs = [mock_paragraph]
+            mock_manager.store.findmanpage.return_value = [mock_manpage]
+            
+            with patch('explainshell.web.debugviews.render_template') as mock_render:
+                with patch('explainshell.web.debugviews.helpers.convertparagraphs'):
+                    mock_render.return_value = "tagger page"
+                    
+                    debugviews.tag("test.1")
+                    
+                    # Should not modify paragraph since it's not an option
+                    # No assertions needed - just verify no exceptions
+
 
 if __name__ == "__main__":
     unittest.main()
