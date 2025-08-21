@@ -1,7 +1,7 @@
 import unittest
 
 from explainshell import matcher, errors, helpconstants
-from tests import helpers
+from . import helpers
 
 s = helpers.mockstore()
 

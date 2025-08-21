@@ -166,7 +166,7 @@ class paragraphjoiner(basefixer):
             return r, start
 
         totalmerged = 0
-        for curr, next in util.pairwise(options):
+        for curr, next in util.pairwise(options):  # type: ignore
             between, start = _paragraphsbetween(curr, next)
             if (
                 curr.section == next.section
@@ -225,4 +225,4 @@ def _parents(fixercls):
     return [f for f in fixerscls if f is not fixercls] if last else p
 
 
-fixerscls = util.toposorted(fixerscls, _parents)
+fixerscls = util.toposorted(fixerscls, _parents)  # type: ignore
