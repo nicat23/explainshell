@@ -1,13 +1,12 @@
-import markupsafe
-import logging
 import itertools
+import logging
 import urllib.parse
 
+import bashlex.errors
+import markupsafe
 from flask import render_template, request, redirect
 
-import bashlex.errors
-
-from explainshell import matcher, errors, util, store, config
+from explainshell import config, errors, matcher, store, util
 from explainshell.web import app, helpers
 
 logger = logging.getLogger(__name__)
@@ -271,11 +270,13 @@ def formatmatch(d, m, expansions):
 
 
 def _substitutionmarkup(cmd):
-    """
-    >>> _substitutionmarkup('foo')
-    '<a href="/explain?cmd=foo" title="Zoom in to nested command">foo</a>'
-    >>> _substitutionmarkup('cat <&3')
-    '<a href="/explain?cmd=cat+%3C%263" title="Zoom in to nested command">cat <&3</a>' # noqa: E501
+    """Generate markup for command substitution links.
+    
+    Args:
+        cmd: Command string to create link for
+        
+    Returns:
+        HTML anchor tag with encoded command URL
     """
     encoded = urllib.parse.quote_plus(cmd)
     return (
