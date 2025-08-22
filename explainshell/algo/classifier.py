@@ -1,4 +1,6 @@
-import itertools, collections, logging
+import itertools
+import collections
+import logging
 
 import nltk
 import nltk.metrics
@@ -48,10 +50,10 @@ class classifier(object):
 
         # flatten the manpages so we get a list of (manpage-name, paragraph)
         def flatten_manpages(manpage):
-            l = []
+            paragraphs_list = []
             for para in manpage.paragraphs:
-                l.append(para)
-            return l
+                paragraphs_list.append(para)
+            return paragraphs_list
 
         paragraphs = itertools.chain(*[flatten_manpages(m) for m in manpages])
         training = list(paragraphs)

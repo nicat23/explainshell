@@ -17,9 +17,10 @@ def debug():
         synopsis = ""
         if mp.synopsis:
             synopsis = mp.synopsis[:20]
-        l = []
-        l.extend(str(o) for o in mp.options)
-        dd = {"name": mp.name, "synopsis": synopsis, "options": ", ".join(l)}
+        option_strings = []
+        option_strings.extend(str(o) for o in mp.options)
+        dd = {"name": mp.name, "synopsis": synopsis,
+              "options": ", ".join(option_strings)}
         d["manpages"].append(dd)
     d["manpages"].sort(key=lambda d: d["name"].lower())
     return render_template("debug.html", d=d)
@@ -71,7 +72,8 @@ def _process_paragraphs(paragraphs_data):
 
 @app.route("/debug/tag/<source>", methods=["GET", "POST"])
 def tag(source):
-    mngr = manager.manager(config.MONGO_URI, "explainshell", [], False, False)
+    mngr = manager.manager(config.MONGO_URI,
+                           "explainshell", set(), False, False)
     m = mngr.store.findmanpage(source)[0]
     assert m
 

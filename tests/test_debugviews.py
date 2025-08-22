@@ -234,7 +234,7 @@ class TestDebugViews(unittest.TestCase):
             
             # Verify manager creation
             mock_manager_class.assert_called_once_with(
-                unittest.mock.ANY, "explainshell", [], False, False
+                unittest.mock.ANY, "explainshell", set(), False, False
             )
             
             # Verify manpage lookup
