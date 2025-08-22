@@ -1,4 +1,6 @@
-FROM python:3.13-alpine
+# Dockerfile
+ARG CODE_VERSION=latest
+FROM python:3.13-alpine  
 
 RUN addgroup -S appuser && adduser -S appuser -G appuser
 

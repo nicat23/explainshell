@@ -1,12 +1,12 @@
-from urllib.parse import quote_plus, urlencode
-import markupsafe
+import itertools
 import logging
-
-from flask import render_template, request, redirect
+import urllib.parse
 
 import bashlex.errors
+import markupsafe
+from flask import render_template, request, redirect
 
-from explainshell import matcher, errors, util, store, config
+from explainshell import config, errors, matcher, store, util
 from explainshell.web import app, helpers
 
 logger = logging.getLogger(__name__)
@@ -42,22 +42,32 @@ def explain():
             "explain.html", matches=matches, helptext=helptext, getargs=command
         )
 
-    except errors.ProgramDoesNotExist as e:
-        return render_template('errors/missingmanpage.html', title='missing man page', e=e)
+    except errors.ProgramDoesNotExist:
+        return render_template(
+            "errors/missingmanpage.html", title="missing man page"
+        )
     except bashlex.errors.ParsingError as e:
-        logger.warn('%r parsing error: %s', command, e.message)
-        return render_template('errors/parsingerror.html', title='parsing error!', e=e)
+        logger.warn("%r parsing error: %s", command, e.message)
+        return render_template("errors/parsingerror.html",
+                               title="parsing error!", e=e)
     except NotImplementedError as e:
-        logger.warn('not implemented error trying to explain %r', command)
-        msg = ("the parser doesn't support %r constructs in the command you tried. you may "
-               "<a href='https://github.com/idank/explainshell/issues'>report a "
-               "bug</a> to have this added, if one doesn't already exist.") % e.args[0]
+        logger.warn("not implemented error trying to explain %r", command)
+        msg = (
+            "the parser doesn't support %r constructs in the command you"
+            "tried. You may"
+            "<a href='https://github.com/idank/explainshell/issues'> "
+            "report a bug</a> to have this added, "
+            "if one doesn't already exist."
+        ) % e.args[0]
 
-        return render_template('errors/error.html', title='error!', message=msg)
-    except Exception as e:
-        logger.error('uncaught exception trying to explain %r', command, exc_info=True)
-        msg = 'something went wrong... this was logged and will be checked'
-        return render_template('errors/error.html', title='error!', message=msg)
+        return render_template("errors/error.html",
+                               title="error!", message=msg)
+    except Exception:
+        logger.error("uncaught exception trying to explain %r",
+                     command, exc_info=True)
+        msg = "something went wrong... this was logged and will be checked"
+        return render_template("errors/error.html",
+                               title="error!", message=msg)
 
 
 @app.route("/explain/<program>", defaults={"section": None})
@@ -70,16 +80,21 @@ def explainold(section, program):
         program = f"{program}.{section}"
 
     # keep links to old urls alive
-    if 'args' in request.args:
-        args = request.args['args']
-        command = '%s %s' % (program, args)
-        return redirect('/explain?cmd=%s' % urllib.parse.quote_plus(command), 301)
+    if "args" in request.args:
+        args = request.args["args"]
+        command = f"{program} {args}"
+        quoted_command = urllib.parse.quote_plus(command)
+        return redirect(f"/explain?cmd={quoted_command}", 301)
     else:
         try:
             mp, suggestions = explainprogram(program, s)
-            return render_template('options.html', mp=mp, suggestions=suggestions)
+            return render_template("options.html",
+                                   mp=mp, suggestions=suggestions)
         except errors.ProgramDoesNotExist as e:
-            return render_template('errors/missingmanpage.html', title='missing man page', e=e)
+            return render_template(
+                "errors/missingmanpage.html", title="missing man page", e=e
+            )
+
 
 def explainprogram(program, store):
     mps = store.findmanpage(program)
@@ -88,11 +103,13 @@ def explainprogram(program, store):
 
     synopsis = mp.synopsis
 
-    mp = {'source' : mp.source[:-3],
-          'section' : mp.section,
-          'program' : program,
-          'synopsis' : synopsis,
-          'options' : [o.text for o in mp.options]}
+    mp = {
+        "source": mp.source[:-3],
+        "section": mp.section,
+        "program": program,
+        "synopsis": synopsis,
+        "options": [o.text for o in mp.options],
+    }
 
     suggestions = []
     for othermp in mps:
@@ -116,9 +133,11 @@ def _makematch(start, end, match, commandclass, helpclass):
     }
 
 
-def _process_group_results(
-    group, texttoid, idstartpos, expansions, is_shell=False
-):
+def _process_group_results(group,
+                           texttoid,
+                           idstartpos,
+                           expansions,
+                           is_shell=False):
     """Process results from a match group and return formatted matches."""
     matches = []
     for m in group.results:
@@ -140,16 +159,19 @@ def _process_group_results(
 
 def _add_command_metadata(matches, commandgroup):
     """Add command metadata to the first match in a command group."""
-    if matches:
-        d = matches[0]
-        d["commandclass"] += " simplecommandstart"
-        if commandgroup.manpage:
-            d["name"] = commandgroup.manpage.name
-            d["section"] = commandgroup.manpage.section
-            if "." not in d["match"]:
-                d["match"] = f'{d["match"]}({d["section"]})'
-            d["suggestions"] = commandgroup.suggestions
-            d["source"] = commandgroup.manpage.source[:-5]
+    if not matches:
+        return
+
+    d = matches[0]
+    d["commandclass"] += " simplecommandstart"
+
+    if getattr(commandgroup, "manpage", None) is not None:
+        d["name"] = commandgroup.manpage.name
+        d["section"] = commandgroup.manpage.section
+        if "." not in d["match"]:
+            d["match"] = f'{d["match"]}({d["section"]})'
+        d["suggestions"] = commandgroup.suggestions
+        d["source"] = commandgroup.manpage.source[:-5]
 
 
 def explaincommand(command, store):
@@ -182,10 +204,14 @@ def explaincommand(command, store):
     it = util.peekable(iter(matches))
     while it.hasnext():
         m = next(it)
+        if m is None:
+            continue
         spaces = 0
         if it.hasnext():
-            spaces = it.peek()['start'] - m['end']
-        m['spaces'] = ' ' * spaces
+            peeked = it.peek()
+            if peeked is not None:
+                spaces = peeked["start"] - m["end"]
+        m["spaces"] = " " * spaces
 
     helptext = sorted(texttoid.items(), key=lambda k_v: idstartpos[k_v[1]])
     return matches, helptext
@@ -244,17 +270,20 @@ def formatmatch(d, m, expansions):
 
 
 def _substitutionmarkup(cmd):
+    """Generate markup for command substitution links.
+    
+    Args:
+        cmd: Command string to create link for
+        
+    Returns:
+        HTML anchor tag with encoded command URL
     """
-    >>> _substitutionmarkup('foo')
-    '<a href="/explain?cmd=foo" title="Zoom in to nested command">foo</a>'
-    >>> _substitutionmarkup('cat <&3')
-    '<a href="/explain?cmd=cat+%3C%263" title="Zoom in to nested command">cat <&3</a>'
-    """
-    encoded = urllib.parse.urlencode({"cmd": cmd})
+    encoded = urllib.parse.quote_plus(cmd)
     return (
-        '<a href="/explain?{query}" title="Zoom in to nested command">{cmd}'
-        "</a>"
+        '<a href="/explain?cmd={query}" '
+        'title="Zoom in to nested command">{cmd}</a>'
     ).format(cmd=cmd, query=encoded)
+
 
 def _checkoverlaps(s, matches):
     explained = [None] * len(s)

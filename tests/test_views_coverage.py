@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from explainshell.web import views
-from explainshell import errors
 
 
 class TestViewsCoverage(unittest.TestCase):
@@ -17,10 +16,10 @@ class TestViewsCoverage(unittest.TestCase):
             {"start": 0, "end": 5},  # "echo "
             {"start": 3, "end": 8}   # "o hel" - overlaps with first
         ]
-        
+
         with self.assertRaises(RuntimeError) as cm:
             views._checkoverlaps(s, matches)
-        
+
         self.assertIn("explained overlap", str(cm.exception))
 
     def test_checkoverlaps_no_overlap(self):
@@ -30,7 +29,7 @@ class TestViewsCoverage(unittest.TestCase):
             {"start": 0, "end": 4},   # "echo"
             {"start": 5, "end": 10}   # "hello"
         ]
-        
+
         # Should not raise exception
         views._checkoverlaps(s, matches)
 
@@ -41,16 +40,16 @@ class TestViewsCoverage(unittest.TestCase):
         group.results = [
             MagicMock(start=0, end=4, text="help text", match="echo")
         ]
-        
+
         texttoid = {}
         idstartpos = {}
         expansions = []
-        
+
         with patch('explainshell.web.views.formatmatch') as mock_format:
             matches = views._process_group_results(
                 group, texttoid, idstartpos, expansions, is_shell=True
             )
-        
+
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0]["commandclass"], "shell")
         mock_format.assert_called_once()
@@ -60,18 +59,18 @@ class TestViewsCoverage(unittest.TestCase):
         group = MagicMock()
         group.name = "command0"
         group.results = [
-            MagicMock(start=0, end=7, text=None, match="unknown")  # Unknown command
+            MagicMock(start=0, end=7, text=None, match="unknown")
         ]
-        
+
         texttoid = {}
         idstartpos = {}
         expansions = []
-        
-        with patch('explainshell.web.views.formatmatch') as mock_format:
+
+        with patch('explainshell.web.views.formatmatch'):
             matches = views._process_group_results(
                 group, texttoid, idstartpos, expansions
             )
-        
+
         self.assertEqual(len(matches), 1)
         self.assertIn("unknown", matches[0]["commandclass"])
         self.assertEqual(matches[0]["helpclass"], "")
@@ -80,10 +79,10 @@ class TestViewsCoverage(unittest.TestCase):
         """Test _add_command_metadata with empty matches"""
         matches = []
         commandgroup = MagicMock()
-        
+
         # Should not crash with empty matches
         views._add_command_metadata(matches, commandgroup)
-        
+
         self.assertEqual(len(matches), 0)
 
     def test_add_command_metadata_with_manpage(self):
@@ -94,9 +93,9 @@ class TestViewsCoverage(unittest.TestCase):
         commandgroup.manpage.section = "1"
         commandgroup.manpage.source = "echo.1.gz"
         commandgroup.suggestions = []
-        
+
         views._add_command_metadata(matches, commandgroup)
-        
+
         self.assertIn("simplecommandstart", matches[0]["commandclass"])
         self.assertEqual(matches[0]["name"], "echo")
         self.assertEqual(matches[0]["section"], "1")
@@ -112,9 +111,9 @@ class TestViewsCoverage(unittest.TestCase):
         commandgroup.manpage.section = "1"
         commandgroup.manpage.source = "echo.1.gz"
         commandgroup.suggestions = []
-        
+
         views._add_command_metadata(matches, commandgroup)
-        
+
         # Should not modify match when it already contains a dot
         self.assertEqual(matches[0]["match"], "echo.1")
 
@@ -126,9 +125,9 @@ class TestViewsCoverage(unittest.TestCase):
         m.end = 4
         m.match = "echo"
         expansions = []
-        
+
         views.formatmatch(d, m, expansions)
-        
+
         self.assertEqual(str(d["match"]), "echo")
 
     def test_formatmatch_with_expansions(self):
@@ -139,10 +138,11 @@ class TestViewsCoverage(unittest.TestCase):
         m.end = 12
         m.match = "echo $(date)"
         expansions = [(5, 11, "substitution")]  # $(date)
-        
-        with patch('explainshell.web.views._substitutionmarkup', return_value='<a>date</a>'):
+
+        with patch('explainshell.web.views._substitutionmarkup',
+                   return_value='<a>date</a>'):
             views.formatmatch(d, m, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         self.assertIn('<span class="expansion-substitution">', str(d["match"]))
 
@@ -154,10 +154,11 @@ class TestViewsCoverage(unittest.TestCase):
         m.end = 15
         m.match = "echo $( date )"
         expansions = [(5, 13, "substitution")]  # $( date )
-        
-        with patch('explainshell.web.views._substitutionmarkup', return_value='<a> date </a>'):
+
+        with patch('explainshell.web.views._substitutionmarkup',
+                   return_value='<a> date </a>'):
             views.formatmatch(d, m, expansions)
-        
+
         # Should handle spaces in expansions
         self.assertIn("expansion-substitution", str(d["match"]))
 
@@ -169,9 +170,9 @@ class TestViewsCoverage(unittest.TestCase):
         m.end = 9  # Match the expansion end
         m.match = "echo $var"
         expansions = [(5, 9, "parameter")]  # $var
-        
+
         views.formatmatch(d, m, expansions)
-        
+
         self.assertIn("expansion-parameter", str(d["match"]))
 
     def test_formatmatch_expansion_at_end(self):
@@ -182,16 +183,16 @@ class TestViewsCoverage(unittest.TestCase):
         m.end = 9
         m.match = "echo $var"
         expansions = [(5, 9, "parameter")]  # $var at end
-        
+
         views.formatmatch(d, m, expansions)
-        
+
         # Should handle expansion at end correctly
         self.assertIn("expansion-parameter", str(d["match"]))
 
     def test_substitutionmarkup_simple(self):
         """Test _substitutionmarkup with simple command"""
         result = views._substitutionmarkup('ls')
-        
+
         self.assertIn('href="/explain?cmd=ls"', result)
         self.assertIn('title="Zoom in to nested command"', result)
         self.assertIn('>ls</a>', result)
@@ -199,7 +200,7 @@ class TestViewsCoverage(unittest.TestCase):
     def test_substitutionmarkup_complex(self):
         """Test _substitutionmarkup with complex command needing encoding"""
         result = views._substitutionmarkup('cat file | grep "test"')
-        
+
         self.assertIn('href="/explain?', result)
         self.assertIn('cat+file', result)  # URL encoded
         self.assertIn('>cat file | grep "test"</a>', result)
@@ -208,28 +209,29 @@ class TestViewsCoverage(unittest.TestCase):
         """Test explaincommand spacing calculation between matches"""
         mock_store = MagicMock()
         mock_matcher = MagicMock()
-        
+
         # Mock groups with matches that have gaps
         shell_group = MagicMock()
         shell_group.name = "shell"
         shell_group.results = []
-        
+
         command_group = MagicMock()
         command_group.name = "command0"
         command_group.manpage = None
         command_group.results = [
             MagicMock(start=0, end=4, text="help1", match="echo"),
-            MagicMock(start=6, end=11, text="help2", match="hello")  # 2 spaces gap
+            MagicMock(start=6, end=11, text="help2", match="hello")
         ]
-        
+
         mock_matcher.match.return_value = [shell_group, command_group]
         mock_matcher.expansions = []
-        
+
         with patch('explainshell.matcher.matcher', return_value=mock_matcher):
             with patch('explainshell.web.views.formatmatch'):
                 with patch('explainshell.web.helpers.suggestions'):
-                    matches, helptext = views.explaincommand("echo  hello", mock_store)
-        
+                    matches, helptext = views.explaincommand("echo  hello",
+                                                             mock_store)
+
         # Should calculate spacing correctly
         self.assertEqual(len(matches), 2)
         # Test that spacing calculation logic is executed

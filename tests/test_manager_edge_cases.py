@@ -1,10 +1,9 @@
 import contextlib
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import tempfile
-import os
 
-from explainshell import manager, errors, store
+from explainshell import manager
 
 
 class TestManagerEdgeCases(unittest.TestCase):
@@ -21,14 +20,14 @@ class TestManagerEdgeCases(unittest.TestCase):
     def test_manager_with_invalid_paths(self):
         """Test manager behavior with invalid file paths"""
         with (
-            patch("explainshell.manager.store.store") as mock_store_class,
+            patch("explainshell.manager.store.store"),
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            ),
         ):
 
             mgr = manager.manager(
-                "localhost", "testdb", ["/nonexistent/file.gz"]
+                "localhost", "testdb", {"/nonexistent/file.gz"}
             )
 
             with patch(
@@ -46,13 +45,15 @@ class TestManagerEdgeCases(unittest.TestCase):
     def test_manager_with_keyboard_interrupt(self):
         """Test manager handling of KeyboardInterrupt"""
         with (
-            patch("explainshell.manager.store.store") as mock_store_class,
+            patch("explainshell.manager.store.store"),
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            ),
         ):
 
-            mgr = manager.manager("localhost", "testdb", ["test.1.gz"])
+            mgr = manager.manager(
+                "localhost", "testdb", {"test.1.gz"}
+            )
 
             with patch(
                 "explainshell.manager.manpage.manpage"
@@ -65,13 +66,13 @@ class TestManagerEdgeCases(unittest.TestCase):
     def test_manager_with_value_error(self):
         """Test manager handling of ValueError during processing"""
         with (
-            patch("explainshell.manager.store.store") as mock_store_class,
+            patch("explainshell.manager.store.store"),
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            ),
         ):
 
-            mgr = manager.manager("localhost", "testdb", ["test.1.gz"])
+            mgr = manager.manager("localhost", "testdb", {"test.1.gz"})
 
             with patch(
                 "explainshell.manager.manpage.manpage"
@@ -86,13 +87,13 @@ class TestManagerEdgeCases(unittest.TestCase):
     def test_manager_with_generic_exception(self):
         """Test manager handling of generic exceptions"""
         with (
-            patch("explainshell.manager.store.store") as mock_store_class,
+            patch("explainshell.manager.store.store"),
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            ),
         ):
 
-            mgr = manager.manager("localhost", "testdb", ["test.1.gz"])
+            mgr = manager.manager("localhost", "testdb", {"test.1.gz"})
 
             with patch(
                 "explainshell.manager.manpage.manpage"
@@ -106,9 +107,7 @@ class TestManagerEdgeCases(unittest.TestCase):
         """Test findmulticommands when no potential multicommands exist"""
         with (
             patch("explainshell.manager.store.store") as mock_store_class,
-            patch(
-                "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            patch("explainshell.manager.classifier.classifier"),
         ):
 
             mock_store_instance = Mock()
@@ -122,73 +121,68 @@ class TestManagerEdgeCases(unittest.TestCase):
             ]
             mock_store_instance.mappings.return_value = []
 
-            mgr = manager.manager("localhost", "testdb", [])
-            mappings, multicommands = mgr.findmulticommands()
-
-            self.assertEqual(mappings, [])
-            self.assertEqual(multicommands, {})
+            self._extracted_from_test_findmulticommands_no_parent_command_21()
 
     def test_findmulticommands_existing_mappings(self):
         """Test findmulticommands when mappings already exist"""
         with (
             patch("explainshell.manager.store.store") as mock_store_class,
-            patch(
-                "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            patch("explainshell.manager.classifier.classifier"),
         ):
 
-            mock_store_instance = Mock()
-            mock_store_class.return_value = mock_store_instance
-
-            mock_store_instance.names.return_value = [
-                ("id1", "git"),
-                ("id2", "git-rebase"),
-            ]
+            mock_store_instance = (
+                self._ext_from_test_findmulticommands_no_parent_10(
+                    mock_store_class, "git", "git-rebase"
+                )
+            )
             # Mapping already exists
             mock_store_instance.mappings.return_value = [("git rebase", "id2")]
 
-            mgr = manager.manager("localhost", "testdb", [])
-            mappings, multicommands = mgr.findmulticommands()
-
-            self.assertEqual(mappings, [])
-            self.assertEqual(multicommands, {})
+            self._extracted_from_test_findmulticommands_no_parent_command_21()
 
     def test_findmulticommands_no_parent_command(self):
         """Test findmulticommands when parent command doesn't exist"""
         with (
             patch("explainshell.manager.store.store") as mock_store_class,
-            patch(
-                "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            patch("explainshell.manager.classifier.classifier"),
         ):
 
-            mock_store_instance = Mock()
-            mock_store_class.return_value = mock_store_instance
-
-            # git-rebase exists but git doesn't
-            mock_store_instance.names.return_value = [
-                ("id1", "git-rebase"),
-                ("id2", "other-command"),
-            ]
+            mock_store_instance = (
+                self._ext_from_test_findmulticommands_no_parent_10(
+                    mock_store_class, "git-rebase", "other-command"
+                )
+            )
             mock_store_instance.mappings.return_value = []
 
-            mgr = manager.manager("localhost", "testdb", [])
-            mappings, multicommands = mgr.findmulticommands()
+            self._extracted_from_test_findmulticommands_no_parent_command_21()
 
-            self.assertEqual(mappings, [])
-            self.assertEqual(multicommands, {})
+    # TODO Rename this helper method
+    def _ext_from_test_findmulticommands_no_parent_10(
+        self, mock_store_class, arg1, arg2
+    ):
+        result = Mock()
+        mock_store_class.return_value = result
+        result.names.return_value = [("id1", arg1), ("id2", arg2)]
+        return result
+
+    # TODO Rename this helper method
+    def _extracted_from_test_findmulticommands_no_parent_command_21(self):
+        mgr = manager.manager("localhost", "testdb", set())
+        mappings, multicommands = mgr.findmulticommands()
+        self.assertEqual(mappings, [])
+        self.assertEqual(multicommands, {})
 
     def test_process_with_no_paragraphs(self):
         """Test process method when manpage has no paragraphs"""
         with (
-            patch("explainshell.manager.store.store") as mock_store_class,
+            patch("explainshell.manager.store.store"),
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
-            patch("explainshell.manager.fixer.runner") as mock_fixer,
+            ),
+            patch("explainshell.manager.fixer.runner"),
         ):
 
-            mgr = manager.manager("localhost", "testdb", [])
+            mgr = manager.manager("localhost", "testdb", set())
 
             mock_manpage = Mock()
             mock_manpage.name = "test"
@@ -207,15 +201,15 @@ class TestManagerEdgeCases(unittest.TestCase):
             patch("explainshell.manager.store.store") as mock_store_class,
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
-            patch("explainshell.manager.fixer.runner") as mock_fixer,
-            patch("explainshell.manager.options.extract") as mock_extract,
+            ),
+            patch("explainshell.manager.fixer.runner"),
+            patch("explainshell.manager.options.extract"),
         ):
 
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
 
-            mgr = manager.manager("localhost", "testdb", [])
+            mgr = manager.manager("localhost", "testdb", set())
 
             mock_manpage = Mock()
             mock_manpage.name = "test"
@@ -244,14 +238,14 @@ class TestManagerEdgeCases(unittest.TestCase):
             patch("explainshell.manager.store.store") as mock_store_class,
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
-            patch("explainshell.manager.fixer.runner") as mock_fixer,
+            ),
+            patch("explainshell.manager.fixer.runner"),
         ):
 
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
 
-            mgr = manager.manager("localhost", "testdb", [])
+            mgr = manager.manager("localhost", "testdb", set())
 
             mock_manpage = Mock()
             mock_manpage.name = "test"
@@ -279,7 +273,7 @@ class TestManagerEdgeCases(unittest.TestCase):
             patch("explainshell.manager.store.store") as mock_store_class,
             patch(
                 "explainshell.manager.classifier.classifier"
-            ) as mock_classifier_class,
+            ),
             patch(
                 "explainshell.manager.manpage.manpage"
             ) as mock_manpage_class,
@@ -301,7 +295,7 @@ class TestManagerEdgeCases(unittest.TestCase):
             mock_manpage_class.return_value = new_mp
 
             mgr = manager.manager(
-                "localhost", "testdb", ["test.1.gz"], overwrite=True
+                "localhost", "testdb", {"test.1.gz"}, overwrite=True
             )
             added, exists = mgr.run()
 

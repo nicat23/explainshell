@@ -1,4 +1,6 @@
-import re, collections, logging
+import re
+import collections
+import logging
 
 from explainshell import store
 
@@ -8,16 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 def extract(manpage):
-    """extract options from all paragraphs that have been classified as containing
-    options"""
+    """extract options from all paragraphs that have been classified as
+    containing options"""
     for i, p in enumerate(manpage.paragraphs):
         if p.is_option:
-            s, l = extract_option(p.cleantext())
-            if s or l:
-                expectsarg = any(x.expectsarg for x in s + l)
+            s, long_opts = extract_option(p.cleantext())
+            if s or long_opts:
+                expectsarg = any(x.expectsarg for x in s + long_opts)
                 s = [x.flag for x in s]
-                l = [x.flag for x in l]
-                manpage.paragraphs[i] = store.option(p, s, l, expectsarg)
+                long_opts = [x.flag for x in long_opts]
+                manpage.paragraphs[i] = store.option(
+                    p, s, long_opts, expectsarg
+                )
             else:
                 logger.error(
                     "no options could be extracted from paragraph %r", p
@@ -26,23 +30,27 @@ def extract(manpage):
 
 opt_regex = re.compile(
     r"""
-    (?P<opt>--?(?:\?|\#|(?:\w+-)*\w+))  # option starts with - or -- and can have - in the middle but not at the end, also allow '-?'
+    (?P<opt>--?(?:\?|\#|(?:\w+-)*\w+))  # option starts with - or --,
+    # can have - in the middle but not at the end, also allow '-?'
     (?:
      (?:\s?(=)?\s?)           # -a=
      (?P<argoptional>[<\[])?  # -a=< or -a=[
      (?:\s?(=)?\s?)           # or maybe -a<=
      (?P<arg>
       (?(argoptional)         # if we think we have an arg (we saw [ or <)
-       [^\]>]+                # either read everything until the closing ] or >
+       [^\]>]+                # read everything until closing ] or >
        |
        (?(2)
-        [-a-zA-Z]+             # or if we didn't see [ or < but just saw =, read all letters, e.g. -a=abc
+        [-a-zA-Z]+             # if just saw =, read all letters,
+        # e.g. -a=abc
         |
-        [A-Z]+                # but if we didn't have =, only allow uppercase letters, e.g. -a FOO
+        [A-Z]+                # if no =, only uppercase letters,
+        # e.g. -a FOO
        )
       )
      )
-     (?(argoptional)(?P<argoptionalc>[\]>])) # read closing ] or > if we have an arg
+     (?(argoptional)(?P<argoptionalc>[\]>]))
+     # read closing ] or > if we have an arg
     )?                        # the whole arg thing is optional
     (?P<ending>,\s*|\s+|\Z|/|\|)""",
     re.X,
@@ -50,7 +58,8 @@ opt_regex = re.compile(
 
 opt2_regex = re.compile(
     r"""
-        (?P<opt>\w+)    # an option that doesn't start with any of the usual characters, e.g. options from 'dd' like bs=BYTES
+        (?P<opt>\w+)    # option that doesn't start with usual chars,
+        # e.g. options from 'dd' like bs=BYTES
         (?:
          (?:\s*=\s*)    # an optional arg, e.g. bs=BYTES
          (?P<arg>\w+)
@@ -87,19 +96,26 @@ def _option(s, pos=0):
     >>> bool(_option('--a-b-'))
     False
     >>> sorted(_option('-a').groupdict().items())
-    [('arg', None), ('argoptional', None), ('argoptionalc', None), ('ending', ''), ('opt', '-a')]
+    [('arg', None), ('argoptional', None), ('argoptionalc', None), \
+('ending', ''), ('opt', '-a')]
     >>> sorted(_option('--a').groupdict().items())
-    [('arg', None), ('argoptional', None), ('argoptionalc', None), ('ending', ''), ('opt', '--a')]
+    [('arg', None), ('argoptional', None), ('argoptionalc', None), \
+('ending', ''), ('opt', '--a')]
     >>> sorted(_option('-a<b>').groupdict().items())
-    [('arg', 'b'), ('argoptional', '<'), ('argoptionalc', '>'), ('ending', ''), ('opt', '-a')]
+    [('arg', 'b'), ('argoptional', '<'), ('argoptionalc', '>'), \
+('ending', ''), ('opt', '-a')]
     >>> sorted(_option('-a=[foo]').groupdict().items())
-    [('arg', 'foo'), ('argoptional', '['), ('argoptionalc', ']'), ('ending', ''), ('opt', '-a')]
+    [('arg', 'foo'), ('argoptional', '['), ('argoptionalc', ']'), \
+('ending', ''), ('opt', '-a')]
     >>> sorted(_option('-a=<foo>').groupdict().items())
-    [('arg', 'foo'), ('argoptional', '<'), ('argoptionalc', '>'), ('ending', ''), ('opt', '-a')]
+    [('arg', 'foo'), ('argoptional', '<'), ('argoptionalc', '>'), \
+('ending', ''), ('opt', '-a')]
     >>> sorted(_option('-a=<foo bar>').groupdict().items())
-    [('arg', 'foo bar'), ('argoptional', '<'), ('argoptionalc', '>'), ('ending', ''), ('opt', '-a')]
+    [('arg', 'foo bar'), ('argoptional', '<'), \
+('argoptionalc', '>'), ('ending', ''), ('opt', '-a')]
     >>> sorted(_option('-a=foo').groupdict().items())
-    [('arg', 'foo'), ('argoptional', None), ('argoptionalc', None), ('ending', ''), ('opt', '-a')]
+    [('arg', 'foo'), ('argoptional', None), ('argoptionalc', None), \
+('ending', ''), ('opt', '-a')]
     >>> bool(_option('-a=[foo>'))
     False
     >>> bool(_option('-a=[foo bar'))

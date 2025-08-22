@@ -17,9 +17,9 @@ class TestViewsFinalCoverage(unittest.TestCase):
         m.end = 10
         m.match = "echo hello"
         expansions = [(5, 10, "parameter")]  # "hello" as parameter
-        
+
         views.formatmatch(d, m, expansions)
-        
+
         # The assertion should pass and expandedmatch should be populated
         self.assertNotEqual(str(d["match"]), "")
         self.assertIn("expansion-parameter", str(d["match"]))

@@ -1,41 +1,47 @@
 import collections
 import logging
 import itertools
-from typing import List, Dict, Any, Optional, Tuple, Iterator, NamedTuple, Union
 
 import bashlex.parser
 import bashlex.ast
 
 from explainshell import errors, util, helpconstants
-from typing import Optional, Union
+from typing import Optional
 
 
-class matchgroup:
-    '''a class to group matchresults together
+class matchgroup(object):
+    """a class to group matchresults together
 
     we group all shell results in one group and create a new group for every
-    command'''
-    def __init__(self, name: str):
+    command"""
+
+    def __init__(self, name):
         self.name = name
-        self.results: List['matchresult'] = []
+        self.results = []
+        self.manpage = None  # Ensure manpage attribute always exists
+        self.suggestions = None  # Also add suggestions for consistency
+        self.error: Optional[Exception] = (
+            None  # Add error attribute for unknown commands
+        )
 
-    def __repr__(self) -> str:
-        return '<matchgroup %r with %d results>' % (self.name, len(self.results))
+    def __repr__(self):
+        return "<matchgroup %r with %d results>" % (
+            self.name,
+            len(self.results),
+        )
 
-class matchresult(NamedTuple):
-    start: int
-    end: int
-    text: Optional[str]
-    match: Optional[str]
-    
+
+class matchresult(
+    collections.namedtuple("matchresult", "start end text match")
+):
     @property
-    def unknown(self) -> bool:
+    def unknown(self):
         return self.text is None
 
-class matchwordexpansion(NamedTuple):
-    start: int
-    end: int
-    kind: str
+
+matchwordexpansion = collections.namedtuple(
+    "matchwordexpansion", "start end kind"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +49,17 @@ logger = logging.getLogger(__name__)
 class matcher(bashlex.ast.nodevisitor):
     """parse a command line and return a list of matchresults describing
     each token.
-    '''
-    def __init__(self, s: str, store):
-        # Python 3: strings are unicode by default, encode to bytes for compatibility
-        self.s = s.encode('latin1', 'replace')
+    """
+
+    def __init__(self, s, store):
+        self.s = s
         self.store = store
         self._prevoption = self._currentoption = None
         self.groups = [matchgroup("shell")]
 
         # a list of matchwordexpansions where expansions happened during word
         # expansion
-        self.expansions: List[matchwordexpansion] = []
+        self.expansions = []
 
         # a stack to manage nested command groups: whenever a new simple
         # command is started, we push a tuple with:
@@ -62,30 +68,42 @@ class matcher(bashlex.ast.nodevisitor):
         # - its matchgroup. new matchresults will be added to it.
         # - a word used to end the top-most command. this is used when a flag
         #   starts a new command, e.g.  find -exec.
-        self.groupstack: List[Tuple[Any, matchgroup, Optional[Union[str, List[str]]]]] = [(None, self.groups[-1], None)]
+        self.groupstack = [(None, self.groups[-1], None)]
 
         # keep a stack of the currently visited compound command (if/for..)
         # to provide context when matching reserved words, since for example
         # the keyword 'done' can appear in a for, while..
-        self.compoundstack: List[str] = []
+        self.compoundstack = []
 
         # a set of functions defined in the current input, we will try to match
         # commands against them so if one refers to defined function, it won't
         # show up as unknown or be taken from the db
-        self.functions: set[str] = set()
+        self.functions = set()
 
-    def _generatecommandgroupname(self) -> str:
-        existing = len([g for g in self.groups if g.name.startswith('command')])
-        return 'command%d' % existing
+        # track word nodes that have been processed as commands to avoid
+        # double processing
+        self.processed_command_words = set()
+
+        # track positions that are part of redirect outputs to exclude from
+        # command processing
+        self.redirect_output_positions = set()
+
+    def _generatecommandgroupname(self):
+        existing = len(
+            [g for g in self.groups if g.name.startswith("command")]
+        )
+        return "command%d" % existing
 
     @property
-    def matches(self) -> List[matchresult]:
-        '''return the list of results from the most recently created group'''
+    def matches(self):
+        """return the list of results from the most recently created group"""
         return self.groupstack[-1][1].results
 
     @property
-    def allmatches(self) -> List[matchresult]:
-        return list(itertools.chain.from_iterable(g.results for g in self.groups))
+    def allmatches(self):
+        return list(
+            itertools.chain.from_iterable(g.results for g in self.groups)
+        )
 
     @property
     def manpage(self):
@@ -93,30 +111,35 @@ class matcher(bashlex.ast.nodevisitor):
         # we do not have a manpage if the top of the stack is the shell group.
         # this can happen if the first argument is a command substitution
         # and we're not treating it as a "man page not found"
-        if group.name != 'shell':
-            return getattr(group, 'manpage', None)
+        if group.name != "shell":
+            return group.manpage
 
-    def find_option(self, opt: str):
-        if self.manpage:
+    def find_option(self, opt):
+        if self.manpage is not None:
             self._currentoption = self.manpage.find_option(opt)
-            logger.debug('looking up option %r, got %r', opt, self._currentoption)
-            return self._currentoption
-        return None
+            logger.debug(
+                "looking up option %r, got %r", opt, self._currentoption
+            )
+        else:
+            self._currentoption = None
+            logger.debug("looking up option %r, but no manpage is set", opt)
+        return self._currentoption
 
-    def findmanpages(self, prog: str):
-        prog = prog.decode('latin1')
-        logger.info('looking up %r in store', prog)
+    def findmanpages(self, prog):
+        # prog is already a string in Python 3
+        logger.info("looking up %r in store", prog)
         manpages = self.store.findmanpage(prog)
         logger.info(
-            "found %r in store, got: %r, using %r", prog, manpages, manpages[0]
+            "found %r in store, got: %r, using %r",
+            prog, manpages, manpages[0]
         )
         return manpages
 
-    def unknown(self, token: str, start: int, end: int) -> matchresult:
-        logger.debug('nothing to do with token %r', token)
+    def unknown(self, token, start, end):
+        logger.debug("nothing to do with token %r", token)
         return matchresult(start, end, None, None)
 
-    def visitreservedword(self, node, word: str) -> None:
+    def visitreservedword(self, n, word):
         # first try the compound reserved words
         helptext = None
         if self.compoundstack:
@@ -130,10 +153,10 @@ class matcher(bashlex.ast.nodevisitor):
             helptext = helpconstants.RESERVEDWORDS[word]
 
         self.groups[0].results.append(
-            matchresult(node.pos[0], node.pos[1], helptext, None)
+            matchresult(n.pos[0], n.pos[1], helptext, None)
         )
 
-    def visitoperator(self, node, op: str) -> None:
+    def visitoperator(self, n, op):
         helptext = None
         if self.compoundstack:
             currentcompound = self.compoundstack[-1]
@@ -144,24 +167,27 @@ class matcher(bashlex.ast.nodevisitor):
         if not helptext:
             helptext = helpconstants.OPERATORS[op]
 
-        self.groups[0].results.append(matchresult(node.pos[0], node.pos[1], helptext, None))
-
-    def visitpipe(self, node, pipe: str) -> None:
         self.groups[0].results.append(
-            matchresult(node.pos[0], node.pos[1], helpconstants.PIPELINES, None)
+            matchresult(n.pos[0], n.pos[1], helptext, None)
         )
 
-    def visitredirect(self, node, input, type: str, output, heredoc) -> bool:
+    def visitpipe(self, n, pipe):
+        self.groups[0].results.append(
+            matchresult(n.pos[0], n.pos[1], helpconstants.PIPELINES, None)
+        )
+
+    def visitredirect(self, n, input, type, output, heredoc):
         helptext = [helpconstants.REDIRECTION]
+        redirect_type = type  # avoid shadowing builtin
 
-        if type == ">>&" and isinstance(output, int):
-            type = type[:-1]
+        if redirect_type == ">&" and isinstance(output, int):
+            redirect_type = redirect_type[:-1]
 
-        if type in helpconstants.REDIRECTION_KIND:
-            helptext.append(helpconstants.REDIRECTION_KIND[type])
+        if redirect_type in helpconstants.REDIRECTION_KIND:
+            helptext.append(helpconstants.REDIRECTION_KIND[redirect_type])
 
         self.groups[0].results.append(
-            matchresult(node.pos[0], node.pos[1], "\n\n".join(helptext), None)
+            matchresult(n.pos[0], n.pos[1], "\n\n".join(helptext), None)
         )
 
         # track redirect output positions to exclude from command processing
@@ -181,14 +207,20 @@ class matcher(bashlex.ast.nodevisitor):
                     ):
                         self.visit(part)
 
-    def visitcommand(self, node, parts: List) -> Optional[bool]:
-        assert parts
+        return None
+
+    def visitcommand(self, n, parts):
+        if not parts:
+            logger.info("command node has no parts, skipping")
+            return
+        node = n  # for compatibility with existing code below
 
         # look for the first WordNode, which might not be at parts[0]
         idxwordnode = bashlex.ast.findfirstkind(parts, "word")
         if idxwordnode == -1:
             logger.info(
-                "no words found in command (probably contains only redirects)"
+                "no words found in command "
+                "(probably contains only redirects)"
             )
             return
 
@@ -247,13 +279,33 @@ class matcher(bashlex.ast.nodevisitor):
             # we're done with this commandnode, don't visit its children
             return
 
+        # track the command word to avoid double processing
+        self.processed_command_words.add(id(wordnode))
+
+        # start the command - this will handle the command word
         self.startcommand(node, parts, None)
 
-    def visitif(self, *args) -> None:
-        self.compoundstack.append('if')
-        
-    def visitfor(self, node, parts: List) -> bool:
-        self.compoundstack.append('for')
+    # TODO Rename this here and in `visitcommand`
+    def _extracted_from_visitcommand_20(self, node, parts):
+        mg = matchgroup(self._generatecommandgroupname())
+        mg.manpage = None
+        mg.suggestions = None
+        self.groups.append(mg)
+        self.groupstack.append((node, mg, None))
+
+        # add the entire command as one unknown match
+        start_pos = node.pos[0]
+        end_pos = node.pos[1]
+        mg.results.append(matchresult(start_pos, end_pos, None, None))
+
+        # mark all parts as processed to prevent double processing
+        for part in parts:
+            if part.kind == "word":
+                self.processed_command_words.add(id(part))
+        return
+
+    def visitfor(self, node, parts):
+        self.compoundstack.append("for")
 
         for part in parts:
             # don't visit words since they're not part of the current command,
@@ -264,53 +316,66 @@ class matcher(bashlex.ast.nodevisitor):
                 )
                 self.groups[0].results.append(mr)
 
-                # but we do want to visit expansions
-                for ppart in part.parts:
-                    self.visit(ppart)
+                # but we do want to visit expanions
+                if hasattr(part, "parts"):
+                    for ppart in part.parts:
+                        self.visit(ppart)
             else:
                 self.visit(part)
 
-    def visitwhile(self, *args) -> None:
-        self.compoundstack.append('while')
-        
-    def visituntil(self, *args) -> None:
-        self.compoundstack.append('until')
+    def visitwhile(self, node, parts):
+        self.compoundstack.append("while")
 
-    def visitnodeend(self, node) -> None:
-        if node.kind == 'command':
+    def visituntil(self, node, parts):
+        self.compoundstack.append("until")
+
+    def visitif(self, node, parts):
+        self.compoundstack.append("if")
+
+    def visitnodeend(self, n):
+        if n.kind == "command":
             # it's possible for visitcommand/end to be called without a command
             # group being pushed if it contains only redirect nodes
             if len(self.groupstack) > 1:
                 logger.info(
-                    "visitnodeend %r, groups %d", node, len(self.groupstack)
+                    "visitnodeend %r, groups %d", n, len(self.groupstack)
                 )
 
-                while self.groupstack[-1][0] is not node:
+                while self.groupstack[-1][0] is not n:
                     logger.info(
                         "popping groups that are a result of nested commands"
                     )
                     self.endcommand()
                 self.endcommand()
-        elif node.kind in ("if", "for", "while", "until"):
+        elif n.kind in ("if", "for", "while", "until"):
             if self.compoundstack:
                 kind = self.compoundstack.pop()
-                if kind != node.kind:
+                if kind != n.kind:
                     logger.warning(
                         "compound stack mismatch: expected %r, got %r",
-                        node.kind,
+                        n.kind,
                         kind,
                     )
             else:
                 logger.warning(
-                    "compound stack is empty when trying to pop for %r", node.kind
+                    "compound stack is empty when trying to pop for %r", n.kind
                 )
 
-    def startcommand(self, commandnode, parts: List, endword: Optional[Union[str, List[str]]], 
-                     addgroup: bool = True) -> bool:
-        logger.info('startcommand commandnode=%r parts=%r, endword=%r, addgroup=%s',
-                    commandnode, parts, endword, addgroup)
-        idxwordnode = bashlex.ast.findfirstkind(parts, 'word')
-        assert idxwordnode != -1
+    def startcommand(self, commandnode, parts, endword, addgroup=True):
+        # filter out redirect nodes from parts - they should be
+        # handled separately
+        parts = [part for part in parts if part.kind != "redirect"]
+
+        logger.info(
+            "startcommand commandnode=%r parts=%r, endword=%r, addgroup=%s",
+            commandnode,
+            parts,
+            endword,
+            addgroup,
+        )
+        idxwordnode = bashlex.ast.findfirstkind(parts, "word")
+        if idxwordnode == -1:
+            return False
 
         wordnode = parts[idxwordnode]
         if hasattr(wordnode, "parts") and wordnode.parts:
@@ -332,7 +397,7 @@ class matcher(bashlex.ast.nodevisitor):
             # we consume this node here, pop it from parts so we
             # don't visit it again as an argument
             parts.pop(idxwordnode)
-        except errors.ProgramDoesNotExist as e:  # Python 3: use 'as' syntax
+        except errors.ProgramDoesNotExist as e:
             if addgroup:
                 # add a group for this command, we'll mark it as unknown
                 # when visitword is called
@@ -365,7 +430,8 @@ class matcher(bashlex.ast.nodevisitor):
             multi = f"{wordnode.word} {nextwordnode.word}"
             try:
                 logger.info(
-                    "%r is a multicommand, trying to get another token and look up %r",
+                    "%r is a multicommand, trying to get another token "
+                    "and look up %r",
                     manpage,
                     multi,
                 )
@@ -377,7 +443,8 @@ class matcher(bashlex.ast.nodevisitor):
                 endpos = nextwordnode.pos[1]
             except errors.ProgramDoesNotExist:
                 logger.info(
-                    "no manpage %r for multicommand %r", multi, manpage
+                    "no manpage %r for multicommand %r",
+                    multi, manpage
                 )
 
         # create a new matchgroup for the current command
@@ -401,44 +468,64 @@ class matcher(bashlex.ast.nodevisitor):
 
         return True
 
-    def endcommand(self) -> None:
-        '''end the most recently created command group by popping it from the
-        group stack. groups are created by visitcommand or a nested command'''
-        assert len(self.groupstack) >= 2, 'groupstack must contain shell and command groups'
-        g = self.groupstack.pop()
-        logger.info('ending group %s', g)
+    # TODO Rename this here and in `startcommand`
+    def _extracted_from_startcommand_22(self, mg, commandnode, endword):
+        mg.manpage = None
+        mg.suggestions = None
+        self.groups.append(mg)
+        self.groupstack.append((commandnode, mg, endword))
 
-    def visitcommandsubstitution(self, node, command) -> bool:
-        kind = self.s[node.pos[0]]
-        substart = 2 if kind == ord('$') else 1  # Python 3: character comparison needs ord()
+    def endcommand(self):
+        """end the most recently created command group by popping it from the
+        group stack. groups are created by visitcommand or a nested command"""
+        assert (
+            len(self.groupstack) >= 2
+        ), "groupstack must contain shell and command groups"
+        g = self.groupstack.pop()
+        logger.info("ending group %s", g)
+
+    def visitcommandsubstitution(self, n, command):
+        kind = self.s[n.pos[0]]
+        substart = 2 if kind == "$" else 1
 
         # start the expansion after the $( or `
         expansion = matchwordexpansion(
-            node.pos[0] + substart, node.pos[1] - 1, "substitution"
+            n.pos[0] + substart, n.pos[1] - 1, "substitution"
         )
         if expansion not in self.expansions:
             self.expansions.append(expansion)
 
-        # do not try to match the child nodes - return None to prevent visiting children
+        # do not try to match the child nodes - return None to prevent
+        # visiting children
         return None
 
-    def visitprocesssubstitution(self, node, command) -> bool:
+    def visitprocesssubstitution(self, n, command):
         # don't include opening <( and closing )
         self.expansions.append(
-            matchwordexpansion(node.pos[0] + 2, node.pos[1] - 1, "substitution")
+            matchwordexpansion(
+                n.pos[0] + 2, n.pos[1] - 1, "substitution"
+            )
         )
 
         # do not try to match the child nodes
         return
 
-    def visitassignment(self, node, word: str) -> None:
+    def visitassignment(self, n, word):
         helptext = helpconstants.ASSIGNMENT
         self.groups[0].results.append(
-            matchresult(node.pos[0], node.pos[1], helptext, None)
+            matchresult(n.pos[0], n.pos[1], helptext, None)
         )
 
-    def visitword(self, node, word: str) -> None:
-        def attemptfuzzy(chars: str) -> List[matchresult]:
+    def visitword(self, n, word):
+        # skip word nodes that have already been processed as commands
+        if id(n) in self.processed_command_words:
+            return
+
+        # skip word nodes that are part of redirect outputs
+        if (n.pos[0], n.pos[1]) in self.redirect_output_positions:
+            return
+
+        def attemptfuzzy(chars):
             m = []
             if chars[0] == "-":
                 tokens = [chars[:2]] + list(chars[2:])
@@ -447,7 +534,7 @@ class matcher(bashlex.ast.nodevisitor):
                 tokens = list(chars)
                 considerarg = False
 
-            pos = node.pos[0]
+            pos = n.pos[0]
             prevoption = None
             for i, t in enumerate(tokens):
                 op = t if t[0] == "-" else f"-{t}"
@@ -455,11 +542,14 @@ class matcher(bashlex.ast.nodevisitor):
                 if option:
                     if considerarg and not m and option.expectsarg:
                         logger.info(
-                            "option %r expected an arg, taking the rest too",
+                            "option %r expected an arg, "
+                            "taking the rest too",
                             option,
                         )
-                        # reset the current option if we already took an argument,
-                        # this prevents the next word node to also consider itself
+                        # reset the current option if we already took an
+                        # argument,
+                        # this prevents the next word node to also consider
+                        # itself
                         # as an argument
                         self._currentoption = None
                         return [
@@ -472,7 +562,8 @@ class matcher(bashlex.ast.nodevisitor):
                     m.append(mr)
                 # if the previous option expected an argument and we couldn't
                 # match the current token, take the rest as its argument, this
-                # covers a series of short options where the last one has an argument
+                # covers a series of short options where the last one has
+                # an argument
                 # with no space between it, such as 'xargs -r0n1'
                 elif considerarg and prevoption and prevoption.expectsarg:
                     pmr = m[-1]
@@ -491,10 +582,10 @@ class matcher(bashlex.ast.nodevisitor):
                 prevoption = option
             return m
 
-        def _visitword(node, word: str) -> None:
+        def _visitword(n, word):
             if not self.manpage:
                 logger.info("inside an unknown command, giving up on %r", word)
-                self.matches.append(self.unknown(word, node.pos[0], node.pos[1]))
+                self.matches.append(self.unknown(word, n.pos[0], n.pos[1]))
                 return
 
             logger.info("trying to match token: %r", word)
@@ -505,18 +596,20 @@ class matcher(bashlex.ast.nodevisitor):
             option = self.find_option(word)
             if option:
                 logger.info("found an exact match for %r: %r", word, option)
-                mr = matchresult(node.pos[0], node.pos[1], option.text, None)
+                mr = matchresult(n.pos[0], n.pos[1], option.text, None)
                 self.matches.append(mr)
 
-                # check if we splitted the word just above, if we did then reset
+                # check if we splitted the word just above, if we did then
+                # reset
                 # the current option so the next word doesn't consider itself
                 # an argument
-                if word != node.word:
+                if word != n.word:
                     self._currentoption = None
             else:
-                word = node.word
+                word = n.word
 
-                # check if we're inside a nested command and this word marks the end
+                # check if we're inside a nested command and this word
+                # marks the end
                 if (
                     isinstance(self.groupstack[-1][-1], list)
                     and word in self.groupstack[-1][-1]
@@ -524,7 +617,7 @@ class matcher(bashlex.ast.nodevisitor):
                     logger.info("token %r ends current nested command", word)
                     self.endcommand()
                     mr = matchresult(
-                        node.pos[0], node.pos[1], self.matches[-1].text, None
+                        n.pos[0], n.pos[1], self.matches[-1].text, None
                     )
                     self.matches.append(mr)
                 elif (
@@ -538,12 +631,13 @@ class matcher(bashlex.ast.nodevisitor):
                         self.matches.extend(attemptfuzzy(word))
                     else:
                         self.matches.append(
-                            self.unknown(word, node.pos[0], node.pos[1])
+                            self.unknown(word, n.pos[0], n.pos[1])
                         )
                 elif self._prevoption and self._prevoption.expectsarg:
                     logger.info(
-                        "previous option possibly expected an arg, and we can't"
-                        " find an option to match the current token, assuming it's an arg"
+                        "previous option possibly expected an arg, "
+                        "and we can't find an option to match the "
+                        "current token, assuming it's an arg"
                     )
                     ea = self._prevoption.expectsarg
                     possibleargs = ea if isinstance(ea, list) else []
@@ -563,7 +657,7 @@ class matcher(bashlex.ast.nodevisitor):
                             )
                             if self.startcommand(
                                 None,
-                                [node],
+                                [n],
                                 self._prevoption.nestedcommand,
                                 addgroup=False,
                             ):
@@ -571,11 +665,11 @@ class matcher(bashlex.ast.nodevisitor):
                                 return
 
                         pmr = self.matches[-1]
-                        mr = matchresult(pmr.start, node.pos[1], pmr.text, None)
+                        mr = matchresult(pmr.start, n.pos[1], pmr.text, None)
                         self.matches[-1] = mr
                     else:
                         self.matches.append(
-                            self.unknown(word, node.pos[0], node.pos[1])
+                            self.unknown(word, n.pos[0], n.pos[1])
                         )
                 else:
                     if self.manpage.partialmatch:
@@ -596,7 +690,7 @@ class matcher(bashlex.ast.nodevisitor):
                             )
                             if self.startcommand(
                                 None,
-                                [node],
+                                [n],
                                 self.manpage.nestedcommand,
                                 addgroup=False,
                             ):
@@ -607,19 +701,20 @@ class matcher(bashlex.ast.nodevisitor):
                         k = list(d.keys())[0]
                         logger.info("got arguments, using %r", k)
                         text = d[k]
-                        mr = matchresult(node.pos[0], node.pos[1], text, None)
+                        mr = matchresult(n.pos[0], n.pos[1], text, None)
                         self.matches.append(mr)
                         return
 
-                    # if all of that failed, we can't explain it so mark it unknown
-                    self.matches.append(self.unknown(word, node.pos[0], node.pos[1]))
+                    # if all of that failed, we can't explain it so mark it
+                    # unknown
+                    self.matches.append(self.unknown(word, n.pos[0], n.pos[1]))
 
-        _visitword(node, word)
+        _visitword(n, word)
 
-    def visitfunction(self, node, name, body, parts: List) -> bool:
+    def visitfunction(self, n, name, body, parts):
         self.functions.add(name.word)
 
-        def _iscompoundopenclosecurly(compound) -> bool:
+        def _iscompoundopenclosecurly(compound):
             first, last = compound.list[0], compound.list[-1]
             if (
                 first.kind == "reservedword"
@@ -628,7 +723,6 @@ class matcher(bashlex.ast.nodevisitor):
                 and last.word == "}"
             ):
                 return True
-            return False
 
         # if the compound command we have there is { }, let's include the
         # {} as part of the function declaration. normally it would be
@@ -637,7 +731,7 @@ class matcher(bashlex.ast.nodevisitor):
         if _iscompoundopenclosecurly(body):
             # create a matchresult until after the first {
             mr = matchresult(
-                node.pos[0], body.list[0].pos[1], helpconstants._function, None
+                n.pos[0], body.list[0].pos[1], helpconstants._function, None
             )
             self.groups[0].results.append(mr)
 
@@ -660,17 +754,16 @@ class matcher(bashlex.ast.nodevisitor):
 
             # create a matchresult ending at the node before body
             mr = matchresult(
-                node.pos[0], beforebody.pos[1], helpconstants._function, None
+                n.pos[0], beforebody.pos[1], helpconstants._function, None
             )
             self.groups[0].results.append(mr)
 
             self.visit(body)
 
-    def visittilde(self, node, value: str) -> None:
-        self.expansions.append(matchwordexpansion(node.pos[0], node.pos[1],
-                                                  'tilde'))
+    def visittilde(self, n, value):
+        self.expansions.append(matchwordexpansion(n.pos[0], n.pos[1], "tilde"))
 
-    def visitparameter(self, node, value: str) -> None:
+    def visitparameter(self, n, value):
         try:
             int(value)
             kind = "digits"
@@ -678,11 +771,11 @@ class matcher(bashlex.ast.nodevisitor):
             kind = helpconstants.parameters.get(value, "param")
 
         self.expansions.append(
-            matchwordexpansion(node.pos[0], node.pos[1], f"parameter-{kind}")
+            matchwordexpansion(n.pos[0], n.pos[1], f"parameter-{kind}")
         )
 
-    def match(self) -> List[matchgroup]:
-        logger.info('matching string %r', self.s)
+    def match(self):
+        logger.info("matching string %r", self.s)
 
         # limit recursive parsing to a depth of 1
         self.ast = bashlex.parser.parsesingle(
@@ -694,7 +787,8 @@ class matcher(bashlex.ast.nodevisitor):
                 len(self.groupstack) == 1
             ), "groupstack should contain only shell group after matching"
 
-            # if we only have one command in there and no shell results/expansions,
+            # if we only have one command in there and no shell
+            # results/expansions,
             # reraise the original exception
             if (
                 len(self.groups) == 2
@@ -704,16 +798,21 @@ class matcher(bashlex.ast.nodevisitor):
                 and self.groups[1].error is not None
             ):
                 raise self.groups[1].error
-        else:
-            logger.warning('no AST generated for %r', self.s)
+        elif not self.ast:
+            logger.warning("no AST generated for %r", self.s)
 
-        def debugmatch() -> str:
-            s = '\n'.join(['%d) %r = %r' % (i, self.s[m.start:m.end], m.text) for i, m in enumerate(self.allmatches)])
+        def debugmatch():
+            s = "\n".join(
+                [
+                    "%d) %r = %r" % (i, self.s[m.start: m.end], m.text)
+                    for i, m in enumerate(self.allmatches)
+                ]
+            )
             return s
 
         self._markunparsedunknown()
 
-        # fix each matchgroup separately
+        # fix each matchgroup seperately
         for group in self.groups:
             if group.results:
                 if getattr(group, "manpage", None):
@@ -727,21 +826,10 @@ class matcher(bashlex.ast.nodevisitor):
                 for i, m in enumerate(group.results):
                     assert m.end <= len(self.s), "%d %d" % (m.end, len(self.s))
 
-                    portion = self.s[m.start:m.end]
-                    # Replace Unicode characters with ??? for the match field
-                    try:
-                        # Try to encode as ASCII, replace non-ASCII with ???
-                        portion_ascii = portion.encode('ascii').decode('ascii')
-                    except UnicodeEncodeError:
-                        # If there are non-ASCII characters, replace them with ???
-                        portion_ascii = ''
-                        for char in portion:
-                            if ord(char) < 128:
-                                portion_ascii += char
-                            else:
-                                portion_ascii += '?'
-                    
-                    group.results[i] = matchresult(m.start, m.end, m.text, portion_ascii)
+                    portion = self.s[m.start: m.end]
+                    group.results[i] = matchresult(
+                        m.start, m.end, m.text, portion
+                    )
 
         logger.debug("%r matches:\n%s", self.s, debugmatch())
 
@@ -750,9 +838,9 @@ class matcher(bashlex.ast.nodevisitor):
 
         return self.groups
 
-    def _markunparsedunknown(self) -> None:
-        '''the parser may leave a remainder at the end of the string if it doesn't
-        match any of the rules, mark them as unknowns'''
+    def _markunparsedunknown(self):
+        """the parser may leave a remainder at the end of the
+        string if it doesn't match any of the rules, mark them as unknowns"""
         parsed = [False] * len(self.s)
 
         # go over all existing matches to see if we've covered the
@@ -761,50 +849,70 @@ class matcher(bashlex.ast.nodevisitor):
             for i in range(start, end):
                 parsed[i] = True
 
-        for i in range(len(parsed)):
-            c = self.s[i]
-            # whitespace is always 'unparsed'
-            if chr(c).isspace():  # Python 3: convert byte to char for isspace()
+        # mark expansion ranges as parsed to avoid duplicating them
+        # sourcery skip: this intentionally prevents duplicate unknowns
+        for start, end, _ in self.expansions:
+            for i in range(start, end):
                 parsed[i] = True
 
-            # the parser ignores comments but we can use a trick to see if this
-            # starts a comment and is beyond the ending index of the parsed
-            # portion of the input
-            if (not self.ast or i > self.ast.pos[1]) and c == ord('#'):  # Python 3: compare with ord('#')
-                comment = matchresult(i, len(parsed), helpconstants.COMMENT, None)
-                self.groups[0].results.append(comment)
-                break
+        # find unparsed ranges and add them as unknown matches
+        i = 0
+        while i < len(parsed):
+            if not parsed[i] and not self.s[i].isspace():
+                # found start of unparsed range
+                start = i
 
-            if not parsed[i]:
-                # add unparsed results to the 'shell' group
-                self.groups[0].results.append(self.unknown(chr(c), i, i+1))  # Python 3: convert byte to char
+                # handle comments specially
+                if self.s[i] == "#":
+                    comment = matchresult(
+                        i, len(parsed), helpconstants.COMMENT, None
+                    )
+                    self.groups[0].results.append(comment)
+                    break
+
+                # find end of unparsed range
+                while (
+                    i < len(parsed)
+                    and not parsed[i]
+                    and not self.s[i].isspace()
+                ):
+                    i += 1
+
+                # add the unparsed range as unknown to shell group
+                unknown_text = self.s[start:i]
+                self.groups[0].results.append(
+                    self.unknown(unknown_text, start, i)
+                )
+            else:
+                i += 1
 
         # there are no overlaps, so sorting by the start is enough
         self.groups[0].results.sort(key=lambda mr: mr.start)
 
-    def _resultindex(self) -> Dict[matchresult, int]:
-        '''return a mapping of matchresults to their index among all
-        matches, sorted by the start position of the matchresult'''
-        d = {}
-        i = 0
-        for result in sorted(self.allmatches, key=lambda mr: mr.start):
-            d[result] = i
-            i += 1
-        return d
+    def _resultindex(self):
+        """return a mapping of matchresults to their index among all
+        matches, sorted by the start position of the matchresult"""
+        return {
+            result: i
+            for i, result in enumerate(
+                sorted(self.allmatches, key=lambda mr: mr.start)
+            )
+        }
 
-    def _mergeadjacent(self, matches: List[matchresult]) -> List[matchresult]:
+    def _mergeadjacent(self, matches):
         merged = []
         resultindex = self._resultindex()
         sametext = itertools.groupby(matches, lambda m: m.text)
         for text, ll in sametext:
-            for l in util.groupcontinuous(list(ll), key=lambda m: resultindex[m]):
-                if len(l) == 1:
-                    merged.append(l[0])
+            for group in util.groupcontinuous(ll,
+                                              key=lambda m: resultindex[m]):
+                if len(group) == 1:
+                    merged.append(group[0])
                 else:
-                    start = l[0].start
-                    end = l[-1].end
-                    endindex = resultindex[l[-1]]
-                    for mr in l:
+                    start = group[0].start
+                    end = group[-1].end
+                    endindex = resultindex[group[-1]]
+                    for mr in group:
                         del resultindex[mr]
                     merged.append(matchresult(start, end, text, None))
                     resultindex[merged[-1]] = endindex

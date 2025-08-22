@@ -1,4 +1,5 @@
-import unittest, os
+import unittest
+import os
 
 from explainshell import manager, config, store, errors
 
@@ -9,10 +10,10 @@ class test_manager(unittest.TestCase):
         store.store("explainshell_tests").drop(True)
 
     def _getmanager(self, names, **kwargs):
-        l = []
-        l.extend(os.path.join(config.MANPAGEDIR, "1", n) for n in names)
+        paths = []
+        paths.extend(os.path.join(config.MANPAGEDIR, "1", n) for n in names)
         return manager.manager(
-            config.MONGO_URI, "explainshell_tests", l, **kwargs
+            config.MONGO_URI, "explainshell_tests", set(paths), **kwargs
         )
 
     def test(self):
@@ -64,7 +65,8 @@ class test_manager(unittest.TestCase):
         self.assertEqual(list(unreachable), ["tar"])
 
     @unittest.skip(
-        "https://github.com/idank/explainshell/pull/303#issuecomment-1272387073"
+        "https://github.com/idank/explainshell/pull/303"
+        "#issuecomment-1272387073"
     )
     def test_aliases(self):
         m = self._getmanager(
@@ -104,7 +106,7 @@ class test_manager(unittest.TestCase):
         m = manager.manager(
             config.MONGO_URI,
             "explainshell_tests",
-            [os.path.join(config.MANPAGEDIR, "1", "tar.1.gz")],
+            {os.path.join(config.MANPAGEDIR, "1", "tar.1.gz")},
             overwrite=True,
         )
         a, e = m.run()
@@ -150,7 +152,7 @@ class test_manager(unittest.TestCase):
             os.path.join(config.MANPAGEDIR, "1", "node.1.gz"),
             os.path.join(config.MANPAGEDIR, "8", "node.8.gz"),
         ]
-        m = manager.manager(config.MONGO_URI, "explainshell_tests", pages)
+        m = manager.manager(config.MONGO_URI, "explainshell_tests", set(pages))
         self._extracted_from_test_samename_samesection_7(
             m, "node", "node.8", "8"
         )
@@ -161,7 +163,6 @@ class test_manager(unittest.TestCase):
             m, "xargs", "xargs.1posix", "1posix"
         )
 
-    # TODO Rename this here and in `test_samename` and `test_samename_samesection`
     def _extracted_from_test_samename_samesection_7(self, m, arg1, arg2, arg3):
         a, e = m.run()
         self.assertEqual(len(a), 2)

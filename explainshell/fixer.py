@@ -1,4 +1,6 @@
-import textwrap, logging, contextlib
+import textwrap
+import logging
+import contextlib
 
 from explainshell import util
 
@@ -106,7 +108,7 @@ class bulletremover(basefixer):
         for i, p in enumerate(self.mctx.manpage.paragraphs):
             with contextlib.suppress(ValueError):
                 idx = p.text.index("\xc2\xb7")
-                p.text = p.text[:idx] + p.text[idx + 2 :]
+                p.text = p.text[:idx] + p.text[idx + 2:]
                 if not p.text.strip():
                     toremove.append(i)
         for i in reversed(toremove):
@@ -181,7 +183,7 @@ class paragraphjoiner(basefixer):
                 newdesc.extend([(p.text or "").rstrip() for p in between])
                 curr.text = "\n\n".join(newdesc)
                 if start is not None:
-                    del paragraphs[start : start + len(between)]
+                    del paragraphs[start: start + len(between)]
                 totalmerged += len(between)
         return totalmerged
 
@@ -219,7 +221,7 @@ def _parents(fixercls):
 
     if last and p:
         raise ValueError(
-            f"{fixercls.__name__} can't be last and also run before someone else"
+            f"{fixercls.__name__} can't be last and also run before others"
         )
 
     return [f for f in fixerscls if f is not fixercls] if last else p

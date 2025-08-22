@@ -5,11 +5,11 @@ from typing import Dict, Any
 # Use pathlib for more modern path handling
 _currdir = Path(__file__).parent.parent
 
-MANPAGEDIR = _currdir / 'manpages'
+MANPAGEDIR = str(_currdir / 'manpages')
 CLASSIFIER_CUTOFF = 0.7
 TOOLSDIR = _currdir / 'tools'
 
-MAN2HTML = TOOLSDIR / 'w3mman2html.cgi'
+MAN2HTML = str(TOOLSDIR / 'w3mman2html.cgi')
 
 # host to pass into Flask's app.run.
 HOST_IP = os.getenv('HOST_IP', None)  # Use None instead of False for clarity

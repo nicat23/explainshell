@@ -1,4 +1,5 @@
-import unittest, subprocess, pymongo, os
+import unittest
+import os
 
 from explainshell import manager, config, matcher
 
@@ -9,7 +10,7 @@ class test_integration(unittest.TestCase):
         mngr = manager.manager(
             config.MONGO_URI,
             "explainshell_tests",
-            [os.path.join(os.path.dirname(__file__), "echo.1.gz")],
+            {os.path.join(os.path.dirname(__file__), "echo.1.gz")},
             drop=True,
         )
         mngr.run()

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa: E501
 
 """manually define and add shell builtins into the store
 
@@ -68,7 +69,12 @@ _add(
     [so(sp(0, source, "", True), [], [], False, True, False)],
 )
 
-break_desc = """If <u>n</u> is specified, break <u>n</u> levels.  <u>n</u> must be ≥ 1.  If <u>n</u> is greater than the  number  of enclosing loops, all enclosing loops are exited.  The return value is 0 unless <u>n</u> is not greater than or  equal  to 1."""
+break_desc = (
+    """If <u>n</u> is specified, break <u>n</u> levels.  <u>n</u> must be ≥ 1.  """
+    """If <u>n</u> is greater than the  number  of enclosing loops, all """
+    """enclosing loops are exited.  The return value is 0 unless <u>n</u> """
+    """is not greater than or  equal  to 1."""
+)
 
 _add(
     ["break"],
@@ -98,7 +104,8 @@ _add(
         so(
             sp(
                 1,
-                "<b>-c</b>     Clear the history list by deleting all the entries.",
+                "<b>-c</b>     Clear the history list by deleting all "
+                "the entries.",
                 "",
                 True,
             ),

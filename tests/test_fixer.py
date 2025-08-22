@@ -1,7 +1,7 @@
 import unittest
 import copy
 
-from explainshell import fixer, options, store
+from explainshell import fixer, store
 
 
 class test_fixer(unittest.TestCase):
@@ -41,7 +41,7 @@ class test_fixer(unittest.TestCase):
         ]
 
         f = fixer.paragraphjoiner(None)
-        merged = f._join(paragraphs, options)
+        f._join(paragraphs, options)
 
         # self.assertEqual(merged, 7)
         # self.assertEqual(len(paragraphs), 19)

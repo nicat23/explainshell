@@ -12,17 +12,20 @@ from explainshell.util import (
 
 class TestUtil(unittest.TestCase):
     def test_consecutive_empty(self):
-        even = lambda x: x % 2 == 0
+        def even(x):
+            return x % 2 == 0
         result = list(consecutive([], even))
         self.assertEqual(result, [])
 
     def test_consecutive_single(self):
-        even = lambda x: x % 2 == 0
+        def even(x):
+            return x % 2 == 0
         result = list(consecutive([1], even))
         self.assertEqual(result, [[1]])
 
     def test_consecutive_mixed(self):
-        even = lambda x: x % 2 == 0
+        def even(x):
+            return x % 2 == 0
         result = list(consecutive([1, 2, 4, 5], even))
         self.assertEqual(result, [[1], [2, 4], [5]])
 
@@ -36,13 +39,17 @@ class TestUtil(unittest.TestCase):
 
     def test_toposorted_simple(self):
         graph = [1, 2, 3]
-        parents = lambda x: []
+
+        def parents(x):
+            return []
         result = toposorted(graph, parents)
         self.assertEqual(len(result), 3)
 
     def test_toposorted_with_dependencies(self):
         graph = [1, 2, 3]
-        parents = lambda x: [x - 1] if x > 1 else []
+
+        def parents(x):
+            return [x - 1] if x > 1 else []
         result = toposorted(graph, parents)
         self.assertEqual(result, [1, 2, 3])
 

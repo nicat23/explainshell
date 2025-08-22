@@ -18,7 +18,15 @@ test-manager-stress:
 
 # Docker commands
 build:
-	docker compose build
+	docker build . -t explainshell
+
+start:
+	docker compose up -d
+	docker compose logs -f
+
+stop:
+	docker compose stop
+
 
 up:
 	docker compose up -d

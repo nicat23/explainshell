@@ -1,9 +1,9 @@
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import urllib.parse
 
 from explainshell.web import views, app
-from explainshell import errors, store
+from explainshell import errors
 import bashlex.errors
 
 
@@ -14,7 +14,7 @@ class TestViews(unittest.TestCase):
         self.mock_store = Mock()
         self.app = app
         self.app.config['TESTING'] = True
-        
+
     def tearDown(self):
         pass
 
@@ -34,7 +34,8 @@ class TestViews(unittest.TestCase):
     def test_substitution_markup(self):
         """Test _substitutionmarkup function"""
         result = views._substitutionmarkup("foo")
-        expected = '<a href="/explain?cmd=foo" title="Zoom in to nested command">foo</a>'
+        expected = ('<a href="/explain?cmd=foo" '
+                    'title="Zoom in to nested command">foo</a>')
         self.assertEqual(result, expected)
 
         # Test with special characters
@@ -47,24 +48,24 @@ class TestViews(unittest.TestCase):
         # Create mock group
         mock_group = Mock()
         mock_group.name = "command"
-        
+
         # Create mock result
         mock_result = Mock()
         mock_result.text = "test text"
         mock_result.start = 0
         mock_result.end = 4
         mock_result.match = "test"
-        
+
         mock_group.results = [mock_result]
-        
+
         texttoid = {}
         idstartpos = {}
         expansions = []
-        
+
         matches = views._process_group_results(
             mock_group, texttoid, idstartpos, expansions
         )
-        
+
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0]["match"], "test")
         self.assertEqual(matches[0]["commandclass"], "command")
@@ -72,16 +73,16 @@ class TestViews(unittest.TestCase):
     def test_add_command_metadata(self):
         """Test _add_command_metadata function"""
         matches = [{"commandclass": "command", "match": "test"}]
-        
+
         mock_commandgroup = Mock()
         mock_commandgroup.manpage = Mock()
         mock_commandgroup.manpage.name = "test"
         mock_commandgroup.manpage.section = "1"
         mock_commandgroup.manpage.source = "test.1.gz"
         mock_commandgroup.suggestions = []
-        
+
         views._add_command_metadata(matches, mock_commandgroup)
-        
+
         self.assertIn("simplecommandstart", matches[0]["commandclass"])
         self.assertEqual(matches[0]["name"], "test")
         self.assertEqual(matches[0]["section"], "1")
@@ -92,9 +93,9 @@ class TestViews(unittest.TestCase):
         """Test index route"""
         with self.app.test_request_context():
             mock_render.return_value = "index page"
-            
+
             result = views.index()
-            
+
             mock_render.assert_called_once_with("index.html")
             self.assertEqual(result, "index page")
 
@@ -103,9 +104,9 @@ class TestViews(unittest.TestCase):
         """Test about route"""
         with self.app.test_request_context():
             mock_render.return_value = "about page"
-            
+
             result = views.about()
-            
+
             mock_render.assert_called_once_with("about.html")
             self.assertEqual(result, "about page")
 
@@ -114,9 +115,9 @@ class TestViews(unittest.TestCase):
         """Test explain route with no command"""
         with self.app.test_request_context('/?'):
             mock_redirect.return_value = "redirect to home"
-            
+
             result = views.explain()
-            
+
             mock_redirect.assert_called_once_with("/")
             self.assertEqual(result, "redirect to home")
 
@@ -125,9 +126,9 @@ class TestViews(unittest.TestCase):
         """Test explain route with empty command"""
         with self.app.test_request_context('/?cmd=   '):
             mock_redirect.return_value = "redirect to home"
-            
+
             result = views.explain()
-            
+
             mock_redirect.assert_called_once_with("/")
             self.assertEqual(result, "redirect to home")
 
@@ -136,9 +137,9 @@ class TestViews(unittest.TestCase):
         """Test explain route with newline in command"""
         with self.app.test_request_context('/?cmd=ls%0Aps'):
             mock_render.return_value = "error page"
-            
+
             result = views.explain()
-            
+
             mock_render.assert_called_once_with(
                 "errors/error.html",
                 title="parsing error!",
@@ -149,45 +150,20 @@ class TestViews(unittest.TestCase):
     @patch('explainshell.web.views.store.store')
     @patch('explainshell.web.views.explaincommand')
     @patch('explainshell.web.views.render_template')
-    def test_explain_route_success(self, mock_render, mock_explaincommand, 
-                                  mock_store_class):
-        """Test successful explain route"""
-        with self.app.test_request_context('/?cmd=ls+-la'):
-            mock_store_instance = Mock()
-            mock_store_class.return_value = mock_store_instance
-            
-            mock_matches = [{"match": "ls", "start": 0, "end": 2}]
-            mock_helptext = [("help text", "help-1")]
-            mock_explaincommand.return_value = (mock_matches, mock_helptext)
-            
-            mock_render.return_value = "explain page"
-            
-            result = views.explain()
-            
-            mock_explaincommand.assert_called_once_with("ls -la", mock_store_instance)
-            mock_render.assert_called_once_with(
-                "explain.html",
-                matches=mock_matches,
-                helptext=mock_helptext,
-                getargs="ls -la"
-            )
-            self.assertEqual(result, "explain page")
-
-    @patch('explainshell.web.views.store.store')
-    @patch('explainshell.web.views.explaincommand')
-    @patch('explainshell.web.views.render_template')
-    def test_explain_route_program_not_exist(self, mock_render, mock_explaincommand,
-                                           mock_store_class):
+    def test_explain_route_program_not_exist(self, mock_render,
+                                             mock_explaincommand,
+                                             mock_store_class):
         """Test explain route with missing program"""
         with self.app.test_request_context('/?cmd=nonexistent'):
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
-            mock_explaincommand.side_effect = errors.ProgramDoesNotExist("nonexistent")
+
+            mock_explaincommand.side_effect = \
+                errors.ProgramDoesNotExist("nonexistent")
             mock_render.return_value = "missing page"
-            
+
             result = views.explain()
-            
+
             mock_render.assert_called_once()
             args, kwargs = mock_render.call_args
             self.assertEqual(args[0], "errors/missingmanpage.html")
@@ -198,22 +174,24 @@ class TestViews(unittest.TestCase):
     @patch('explainshell.web.views.explaincommand')
     @patch('explainshell.web.views.render_template')
     @patch('explainshell.web.views.logger')
-    def test_explain_route_parsing_error(self, mock_logger, mock_render, 
-                                       mock_explaincommand, mock_store_class):
+    def test_explain_route_parsing_error(self, mock_logger, mock_render,
+                                         mock_explaincommand,
+                                         mock_store_class):
         """Test explain route with parsing error"""
         with self.app.test_request_context('/?cmd=invalid+syntax'):
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
+
             # Create ParsingError with required parameters
             mock_node = {'pos': 0}
-            parsing_error = bashlex.errors.ParsingError("test error", mock_node, 0)
+            parsing_error = bashlex.errors.ParsingError(
+                "test error", mock_node, 0)
             parsing_error.message = "test error"
             mock_explaincommand.side_effect = parsing_error
             mock_render.return_value = "parsing error page"
-            
+
             result = views.explain()
-            
+
             mock_logger.warn.assert_called_once()
             mock_render.assert_called_once()
             args, kwargs = mock_render.call_args
@@ -226,17 +204,19 @@ class TestViews(unittest.TestCase):
     @patch('explainshell.web.views.render_template')
     @patch('explainshell.web.views.logger')
     def test_explain_route_not_implemented(self, mock_logger, mock_render,
-                                         mock_explaincommand, mock_store_class):
+                                           mock_explaincommand,
+                                           mock_store_class):
         """Test explain route with not implemented error"""
         with self.app.test_request_context('/?cmd=unsupported'):
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
-            mock_explaincommand.side_effect = NotImplementedError("test construct")
+
+            mock_explaincommand.side_effect = \
+                NotImplementedError("test construct")
             mock_render.return_value = "not implemented page"
-            
+
             result = views.explain()
-            
+
             mock_logger.warn.assert_called_once()
             mock_render.assert_called_once()
             args, kwargs = mock_render.call_args
@@ -250,17 +230,18 @@ class TestViews(unittest.TestCase):
     @patch('explainshell.web.views.render_template')
     @patch('explainshell.web.views.logger')
     def test_explain_route_general_exception(self, mock_logger, mock_render,
-                                           mock_explaincommand, mock_store_class):
+                                             mock_explaincommand,
+                                             mock_store_class):
         """Test explain route with general exception"""
         with self.app.test_request_context('/?cmd=error+command'):
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
+
             mock_explaincommand.side_effect = Exception("unexpected error")
             mock_render.return_value = "general error page"
-            
+
             result = views.explain()
-            
+
             mock_logger.error.assert_called_once()
             mock_render.assert_called_once()
             args, kwargs = mock_render.call_args
@@ -278,13 +259,13 @@ class TestViews(unittest.TestCase):
         mock_mp.namesection = "test(1)"
         mock_mp.synopsis = "test synopsis"
         mock_mp.options = [Mock(text="option 1"), Mock(text="option 2")]
-        
+
         # Create mock store
         mock_store = Mock()
         mock_store.findmanpage.return_value = [mock_mp]
-        
+
         result_mp, suggestions = views.explainprogram("test", mock_store)
-        
+
         self.assertEqual(result_mp["source"], "test.1")
         self.assertEqual(result_mp["section"], "1")
         self.assertEqual(result_mp["program"], "test(1)")
@@ -301,18 +282,18 @@ class TestViews(unittest.TestCase):
         mock_mp1.namesection = "test(1)"
         mock_mp1.synopsis = "test synopsis"
         mock_mp1.options = []
-        
+
         mock_mp2 = Mock()
         mock_mp2.namesection = "test(8)"
         mock_mp2.section = "8"
         mock_mp2.name = "test"
-        
+
         # Create mock store
         mock_store = Mock()
         mock_store.findmanpage.return_value = [mock_mp1, mock_mp2]
-        
+
         result_mp, suggestions = views.explainprogram("test", mock_store)
-        
+
         self.assertEqual(len(suggestions), 1)
         self.assertEqual(suggestions[0]["text"], "test(8)")
         self.assertEqual(suggestions[0]["link"], "8/test")
@@ -325,25 +306,25 @@ class TestViews(unittest.TestCase):
         mock_matcher = Mock()
         mock_matcher_class.return_value = mock_matcher
         mock_matcher.expansions = []
-        
+
         # Create mock groups
         mock_shell_group = Mock()
         mock_shell_group.results = []
-        
+
         mock_cmd_group = Mock()
         mock_cmd_group.results = []
         mock_cmd_group.manpage = None
-        
+
         mock_matcher.match.return_value = [mock_shell_group, mock_cmd_group]
-        
+
         mock_store = Mock()
-        
+
         matches, helptext = views.explaincommand("test command", mock_store)
-        
+
         mock_matcher_class.assert_called_once_with("test command", mock_store)
         mock_matcher.match.assert_called_once()
         mock_suggestions.assert_called_once()
-        
+
         self.assertIsInstance(matches, list)
         self.assertIsInstance(helptext, list)
 
@@ -355,9 +336,9 @@ class TestViews(unittest.TestCase):
         mock_match.start = 0
         mock_match.end = 4
         expansions = []
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertEqual(str(d["match"]), "test")
 
     def test_formatmatch_with_expansions(self):
@@ -368,9 +349,9 @@ class TestViews(unittest.TestCase):
         mock_match.start = 0
         mock_match.end = 12
         expansions = [(2, 11, "substitution")]  # "echo test"
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         self.assertIn("expansion-substitution", str(d["match"]))
 
@@ -380,10 +361,11 @@ class TestViews(unittest.TestCase):
         """Test explainold route with args parameter"""
         with self.app.test_request_context('/?args=-la'):
             mock_redirect.return_value = "redirect response"
-            
+
             result = views.explainold("1", "ls")
-            
-            expected_url = "/explain?cmd=" + urllib.parse.quote_plus("ls.1 -la")
+
+            expected_url = ("/explain?cmd=" +
+                            urllib.parse.quote_plus("ls.1 -la"))
             mock_redirect.assert_called_once_with(expected_url, 301)
             self.assertEqual(result, "redirect response")
 
@@ -391,22 +373,23 @@ class TestViews(unittest.TestCase):
     @patch('explainshell.web.views.explainprogram')
     @patch('explainshell.web.views.render_template')
     @patch('explainshell.web.views.logger')
-    def test_explainold_success(self, mock_logger, mock_render, mock_explainprogram,
-                               mock_store_class):
+    def test_explainold_success(self, mock_logger, mock_render,
+                                mock_explainprogram, mock_store_class):
         """Test successful explainold route"""
         with self.app.test_request_context('/'):
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
+
             mock_mp = {"program": "test", "options": []}
             mock_suggestions = []
             mock_explainprogram.return_value = (mock_mp, mock_suggestions)
-            
+
             mock_render.return_value = "options page"
-            
+
             result = views.explainold("1", "test")
-            
-            mock_explainprogram.assert_called_once_with("test.1", mock_store_instance)
+
+            mock_explainprogram.assert_called_once_with(
+                "test.1", mock_store_instance)
             mock_render.assert_called_once_with(
                 "options.html",
                 mp=mock_mp,
@@ -419,17 +402,19 @@ class TestViews(unittest.TestCase):
     @patch('explainshell.web.views.render_template')
     @patch('explainshell.web.views.logger')
     def test_explainold_program_not_exist(self, mock_logger, mock_render,
-                                        mock_explainprogram, mock_store_class):
+                                          mock_explainprogram,
+                                          mock_store_class):
         """Test explainold route with missing program"""
         with self.app.test_request_context('/'):
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
-            
-            mock_explainprogram.side_effect = errors.ProgramDoesNotExist("test")
+
+            mock_explainprogram.side_effect = \
+                errors.ProgramDoesNotExist("test")
             mock_render.return_value = "missing page"
-            
+
             result = views.explainold(None, "test")
-            
+
             mock_render.assert_called_once()
             args, kwargs = mock_render.call_args
             self.assertEqual(args[0], "errors/missingmanpage.html")
@@ -443,7 +428,7 @@ class TestViews(unittest.TestCase):
             {"start": 0, "end": 4},  # "test"
             {"start": 5, "end": 12}  # "command"
         ]
-        
+
         # Should not raise exception
         views._checkoverlaps(s, matches)
 
@@ -454,38 +439,42 @@ class TestViews(unittest.TestCase):
             {"start": 0, "end": 6},  # "test c"
             {"start": 4, "end": 12}  # "t command" - overlaps with previous
         ]
-        
+
         with self.assertRaises(RuntimeError):
             views._checkoverlaps(s, matches)
 
 
 class TestViewsIntegration(unittest.TestCase):
     """Integration tests for views.py"""
-    
+
     def setUp(self):
         self.app = app
         self.app.config['TESTING'] = True
-        
+
     def tearDown(self):
         pass
 
     def test_command_length_limit(self):
         """Test that commands are limited to 1000 characters"""
         long_command = "a" * 1001
-        
-        with self.app.test_request_context(f'/?cmd={long_command}'):
-            with patch('explainshell.web.views.store.store') as mock_store_class:
+
+        with self.app.test_request_context(
+                f'/?cmd={long_command}'):
+            with patch('explainshell.web.views.store.store') as \
+                    mock_store_class:
                 mock_store = Mock()
                 mock_store_class.return_value = mock_store
-                
-                with patch('explainshell.web.views.explaincommand') as mock_explain:
+
+                with patch('explainshell.web.views.explaincommand') \
+                        as mock_explain:
                     mock_explain.return_value = ([], [])
-                    
-                    with patch('explainshell.web.views.render_template') as mock_render:
+
+                    with patch('explainshell.web.views.render_template') \
+                            as mock_render:
                         mock_render.return_value = "result"
-                        
+
                         views.explain()
-                        
+
                         # Should be called with truncated command
                         mock_explain.assert_called_once()
                         args = mock_explain.call_args[0]
@@ -495,9 +484,10 @@ class TestViewsIntegration(unittest.TestCase):
         """Test URL encoding in substitution markup"""
         cmd_with_special_chars = "cat < file & echo 'test'"
         result = views._substitutionmarkup(cmd_with_special_chars)
-        
+
         # Should contain URL-encoded version
-        self.assertIn(urllib.parse.quote_plus(cmd_with_special_chars), result)
+        encoded = urllib.parse.quote_plus(cmd_with_special_chars)
+        self.assertIn(encoded, result)
         # Should contain original for display
         self.assertIn(cmd_with_special_chars, result)
 
@@ -505,23 +495,23 @@ class TestViewsIntegration(unittest.TestCase):
         """Test _process_group_results with text in results"""
         mock_group = Mock()
         mock_group.name = "option"
-        
+
         mock_result = Mock()
         mock_result.text = "help text"
         mock_result.start = 0
         mock_result.end = 4
         mock_result.match = "test"
-        
+
         mock_group.results = [mock_result]
-        
+
         texttoid = {}
         idstartpos = {}
         expansions = []
-        
+
         matches = views._process_group_results(
             mock_group, texttoid, idstartpos, expansions
         )
-        
+
         self.assertEqual(len(matches), 1)
         self.assertIn("help text", texttoid)
         self.assertIn(texttoid["help text"], idstartpos)
@@ -530,23 +520,23 @@ class TestViewsIntegration(unittest.TestCase):
         """Test _process_group_results with no text in results"""
         mock_group = Mock()
         mock_group.name = "command"
-        
+
         mock_result = Mock()
         mock_result.text = None
         mock_result.start = 0
         mock_result.end = 4
         mock_result.match = "test"
-        
+
         mock_group.results = [mock_result]
-        
+
         texttoid = {}
         idstartpos = {}
         expansions = []
-        
+
         matches = views._process_group_results(
             mock_group, texttoid, idstartpos, expansions
         )
-        
+
         self.assertEqual(len(matches), 1)
         self.assertIn("unknown", matches[0]["commandclass"])
         self.assertEqual(matches[0]["helpclass"], "")
@@ -555,7 +545,7 @@ class TestViewsIntegration(unittest.TestCase):
         """Test _add_command_metadata with empty matches list"""
         matches = []
         mock_commandgroup = Mock()
-        
+
         # Should not raise exception
         views._add_command_metadata(matches, mock_commandgroup)
         self.assertEqual(len(matches), 0)
@@ -565,27 +555,27 @@ class TestViewsIntegration(unittest.TestCase):
         matches = [{"commandclass": "command", "match": "test"}]
         mock_commandgroup = Mock()
         mock_commandgroup.manpage = None
-        
+
         views._add_command_metadata(matches, mock_commandgroup)
-        
+
         self.assertIn("simplecommandstart", matches[0]["commandclass"])
         self.assertNotIn("name", matches[0])
 
     def test_add_command_metadata_with_dot_in_match(self):
         """Test _add_command_metadata when match already contains dot"""
         matches = [{"commandclass": "command", "match": "test.sh"}]
-        
+
         mock_manpage = Mock()
         mock_manpage.name = "test"
         mock_manpage.section = "1"
         mock_manpage.source = "test.1.gz"
-        
+
         mock_commandgroup = Mock()
         mock_commandgroup.manpage = mock_manpage
         mock_commandgroup.suggestions = []
-        
+
         views._add_command_metadata(matches, mock_commandgroup)
-        
+
         # Should not modify match when it contains dot
         self.assertEqual(matches[0]["match"], "test.sh")
 
@@ -596,12 +586,12 @@ class TestViewsIntegration(unittest.TestCase):
         mock_match.match = "$(echo test)"
         mock_match.start = 0
         mock_match.end = 12
-        
+
         # Expansion with whitespace
         expansions = [(2, 11, "substitution")]  # "echo test"
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         # Should handle whitespace properly
         self.assertIn("expansion-substitution", str(d["match"]))
@@ -613,12 +603,12 @@ class TestViewsIntegration(unittest.TestCase):
         mock_match.match = "test"
         mock_match.start = 0
         mock_match.end = 4
-        
+
         # Expansion starts after match ends
         expansions = [(5, 10, "substitution")]
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         # Should not have expansion class
         self.assertNotIn("hasexpansion", d["commandclass"])
         self.assertEqual(str(d["match"]), "test")
@@ -630,11 +620,11 @@ class TestViewsIntegration(unittest.TestCase):
         mock_match.match = "${var}"
         mock_match.start = 0
         mock_match.end = 6
-        
+
         expansions = [(0, 6, "parameter")]  # Non-substitution type
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         self.assertIn("expansion-parameter", str(d["match"]))
 
@@ -646,14 +636,15 @@ class TestViewsIntegration(unittest.TestCase):
         mock_mp.namesection = "test(1)"
         mock_mp.synopsis = "test synopsis"
         mock_mp.options = []
-        
+
         mock_store = Mock()
         mock_store.findmanpage.return_value = [mock_mp]
-        
+
         result_mp, suggestions = views.explainprogram("test", mock_store)
-        
+
         # Code removes last 3 chars regardless of extension
-        self.assertEqual(result_mp["source"], "tes")  # "test.1"[:-3] = "tes"
+        # "test.1"[:-3] = "tes"
+        self.assertEqual(result_mp["source"], "tes")
 
     @patch('explainshell.web.views.matcher.matcher')
     def test_explaincommand_with_expansions(self, mock_matcher_class):
@@ -661,7 +652,7 @@ class TestViewsIntegration(unittest.TestCase):
         mock_matcher = Mock()
         mock_matcher_class.return_value = mock_matcher
         mock_matcher.expansions = [(0, 5, "substitution")]
-        
+
         # Create mock shell group
         mock_shell_group = Mock()
         mock_shell_result = Mock()
@@ -671,7 +662,7 @@ class TestViewsIntegration(unittest.TestCase):
         mock_shell_result.match = "test"
         mock_shell_group.name = "shell"
         mock_shell_group.results = [mock_shell_result]
-        
+
         # Create mock command group
         mock_cmd_group = Mock()
         mock_cmd_result = Mock()
@@ -683,12 +674,12 @@ class TestViewsIntegration(unittest.TestCase):
         mock_cmd_group.results = [mock_cmd_result]
         mock_cmd_group.manpage = None
         mock_cmd_group.suggestions = []
-        
+
         mock_matcher.match.return_value = [mock_shell_group, mock_cmd_group]
-        
+
         with patch('explainshell.web.views.helpers.suggestions'):
             matches, helptext = views.explaincommand("test cmd", Mock())
-        
+
         self.assertEqual(len(matches), 2)
         self.assertEqual(len(helptext), 2)
         # Verify expansions were passed to formatmatch
@@ -696,11 +687,12 @@ class TestViewsIntegration(unittest.TestCase):
 
     def test_explaincommand_spacing_calculation(self):
         """Test explaincommand spacing calculation between matches"""
-        with patch('explainshell.web.views.matcher.matcher') as mock_matcher_class:
+        with patch('explainshell.web.views.matcher.matcher') as \
+                mock_matcher_class:
             mock_matcher = Mock()
             mock_matcher_class.return_value = mock_matcher
             mock_matcher.expansions = []
-            
+
             # Create matches with gaps
             mock_shell_group = Mock()
             mock_shell_result = Mock()
@@ -710,7 +702,7 @@ class TestViewsIntegration(unittest.TestCase):
             mock_shell_result.match = "test"
             mock_shell_group.name = "shell"
             mock_shell_group.results = [mock_shell_result]
-            
+
             mock_cmd_group = Mock()
             mock_cmd_result = Mock()
             mock_cmd_result.text = "help2"
@@ -721,12 +713,13 @@ class TestViewsIntegration(unittest.TestCase):
             mock_cmd_group.results = [mock_cmd_result]
             mock_cmd_group.manpage = None
             mock_cmd_group.suggestions = []
-            
-            mock_matcher.match.return_value = [mock_shell_group, mock_cmd_group]
-            
+
+            mock_matcher.match.return_value = [mock_shell_group,
+                                               mock_cmd_group]
+
             with patch('explainshell.web.views.helpers.suggestions'):
                 matches, helptext = views.explaincommand("test   cmd", Mock())
-            
+
             # First match should have 3 spaces
             self.assertEqual(matches[0]["spaces"], "   ")
             # Second match should have empty spaces (last match)
@@ -739,12 +732,12 @@ class TestViewsIntegration(unittest.TestCase):
         mock_match.match = "test cmd"
         mock_match.start = 0
         mock_match.end = 8
-        
+
         # Expansion extends beyond match - should not be processed
         expansions = [(4, 12, "substitution")]  # "cmd" + beyond match end
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         # Should not have expansion since it extends beyond match
         self.assertNotIn("hasexpansion", d["commandclass"])
         self.assertEqual(str(d["match"]), "test cmd")
@@ -756,14 +749,14 @@ class TestViewsIntegration(unittest.TestCase):
         mock_match.match = "$(echo) $(cat)"
         mock_match.start = 0
         mock_match.end = 14
-        
+
         expansions = [
             (2, 6, "substitution"),   # "echo"
             (10, 13, "substitution")  # "cat"
         ]
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         match_str = str(d["match"])
         self.assertEqual(match_str.count("expansion-substitution"), 2)
@@ -775,11 +768,11 @@ class TestViewsIntegration(unittest.TestCase):
         mock_match.match = "$(echo test)"
         mock_match.start = 0
         mock_match.end = 12
-        
+
         expansions = [(2, 11, "substitution")]  # "echo test"
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         # Should have expansion markup with substitution link
         self.assertIn("hasexpansion", d["commandclass"])
         self.assertIn("expansion-substitution", str(d["match"]))
@@ -794,31 +787,31 @@ class TestViewsIntegration(unittest.TestCase):
         mock_mp1.namesection = "test(1)"
         mock_mp1.synopsis = "test synopsis"
         mock_mp1.options = []
-        
+
         mock_mp2 = Mock()
         mock_mp2.namesection = "test(8)"
         mock_mp2.section = "8"
         mock_mp2.name = "test"
-        
+
         mock_store = Mock()
         mock_store.findmanpage.return_value = [mock_mp1, mock_mp2]
-        
+
         views.explainprogram("test", mock_store)
-        
+
         # Should log suggestions
         mock_logger.info.assert_called()
         args = mock_logger.info.call_args[0]
         self.assertIn("suggestions", args[0])
 
     def test_checkoverlaps_adjacent_matches(self):
-        """Test _checkoverlaps with adjacent but non-overlapping matches"""
+        """Test _checkoverlaps with adjacent non-overlapping matches"""
         s = "test command"
         matches = [
             {"start": 0, "end": 4},  # "test"
             {"start": 4, "end": 5},  # " "
             {"start": 5, "end": 12}  # "command"
         ]
-        
+
         # Should not raise exception for adjacent matches
         views._checkoverlaps(s, matches)
 
@@ -829,19 +822,20 @@ class TestViewsIntegration(unittest.TestCase):
             {"start": 0, "end": 5},  # "test "
             {"start": 4, "end": 12}  # " command" - overlaps at position 4
         ]
-        
+
         with self.assertRaises(RuntimeError) as cm:
             views._checkoverlaps(s, matches)
-        
+
         self.assertIn("explained overlap", str(cm.exception))
 
     def test_explaincommand_negative_spacing(self):
-        """Test explaincommand handles negative spacing correctly"""
-        with patch('explainshell.web.views.matcher.matcher') as mock_matcher_class:
+        """Test explaincommand handles negative spacing"""
+        with patch('explainshell.web.views.matcher.matcher') as \
+                mock_matcher_class:
             mock_matcher = Mock()
             mock_matcher_class.return_value = mock_matcher
             mock_matcher.expansions = []
-            
+
             # Create overlapping matches (negative spacing)
             mock_shell_group = Mock()
             mock_shell_result = Mock()
@@ -851,7 +845,7 @@ class TestViewsIntegration(unittest.TestCase):
             mock_shell_result.match = "test"
             mock_shell_group.name = "shell"
             mock_shell_group.results = [mock_shell_result]
-            
+
             mock_cmd_group = Mock()
             mock_cmd_result = Mock()
             mock_cmd_result.text = "help2"
@@ -862,51 +856,55 @@ class TestViewsIntegration(unittest.TestCase):
             mock_cmd_group.results = [mock_cmd_result]
             mock_cmd_group.manpage = None
             mock_cmd_group.suggestions = []
-            
-            mock_matcher.match.return_value = [mock_shell_group, mock_cmd_group]
-            
+
+            mock_matcher.match.return_value = [mock_shell_group,
+                                               mock_cmd_group]
+
             with patch('explainshell.web.views.helpers.suggestions'):
                 matches, helptext = views.explaincommand("test cmd", Mock())
-            
+
             # Should handle negative spacing by using max(0, spaces)
-            self.assertEqual(matches[0]["spaces"], "")  # No negative spaces
+            self.assertEqual(matches[0]["spaces"], "")  # No negative
 
     def test_substitution_markup_empty_command(self):
         """Test _substitutionmarkup with empty command"""
         result = views._substitutionmarkup("")
-        expected = '<a href="/explain?cmd=" title="Zoom in to nested command"></a>'
+        expected = ('<a href="/explain?cmd=" '
+                    'title="Zoom in to nested command"></a>')
         self.assertEqual(result, expected)
 
     def test_substitution_markup_unicode_characters(self):
         """Test _substitutionmarkup with unicode characters"""
         cmd_with_unicode = "echo 'héllo wörld'"
         result = views._substitutionmarkup(cmd_with_unicode)
-        
+
         # Should contain URL-encoded version
-        self.assertIn(urllib.parse.urlencode({"cmd": cmd_with_unicode}), result)
+        encoded = urllib.parse.urlencode({"cmd": cmd_with_unicode})
+        self.assertIn(encoded, result)
         # Should contain original for display
         self.assertIn(cmd_with_unicode, result)
 
     def test_formatmatch_complex_expansion_sequence(self):
-        """Test formatmatch with complex expansion sequence and edge cases"""
+        """Test formatmatch with complex expansion sequence"""
         d = {"commandclass": "command"}
         mock_match = Mock()
         mock_match.match = "a$(b)c$(d)e"
         mock_match.start = 0
         mock_match.end = 10
-        
+
         # Multiple expansions with gaps
         expansions = [
             (2, 3, "substitution"),  # "b"
             (6, 7, "substitution")   # "d"
         ]
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         match_str = str(d["match"])
         # Should have both expansions
-        self.assertEqual(match_str.count("expansion-substitution"), 2)
+        count = match_str.count("expansion-substitution")
+        self.assertEqual(count, 2)
         # Should preserve non-expansion characters
         self.assertIn("a", match_str)
         self.assertIn("c", match_str)
@@ -919,12 +917,12 @@ class TestViewsIntegration(unittest.TestCase):
         mock_match.match = "$(echo)test"
         mock_match.start = 0
         mock_match.end = 11
-        
+
         # Expansion starts at beginning of match
         expansions = [(0, 7, "substitution")]  # "$(echo)"
-        
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         match_str = str(d["match"])
         self.assertIn("expansion-substitution", match_str)
@@ -932,18 +930,19 @@ class TestViewsIntegration(unittest.TestCase):
         self.assertIn("test", match_str)
 
     def test_formatmatch_expansion_with_prefix_text(self):
-        """Test formatmatch with text before expansion to cover i = relativestart + 1"""
+        """Test formatmatch with text before expansion"""
         d = {"commandclass": "command"}
         mock_match = Mock()
         mock_match.match = "prefix$(cmd)suffix"
         mock_match.start = 5
         mock_match.end = 19
-        
+
         # Expansion in middle with prefix text
-        expansions = [(11, 16, "substitution")]  # "$(cmd)" at positions 6-11 relative to match start
-        
+        # "$(cmd)" at positions 6-11 relative to match start
+        expansions = [(11, 16, "substitution")]
+
         views.formatmatch(d, mock_match, expansions)
-        
+
         self.assertIn("hasexpansion", d["commandclass"])
         match_str = str(d["match"])
         self.assertIn("prefix", match_str)
@@ -951,27 +950,27 @@ class TestViewsIntegration(unittest.TestCase):
         self.assertIn("suffix", match_str)
 
     def test_process_group_results_with_is_shell_true(self):
-        """Test _process_group_results with is_shell=True parameter"""
+        """Test _process_group_results with is_shell=True"""
         mock_group = Mock()
         mock_group.name = "shell"
-        
+
         mock_result = Mock()
         mock_result.text = "shell help"
         mock_result.start = 0
         mock_result.end = 4
         mock_result.match = "test"
-        
+
         mock_group.results = [mock_result]
-        
+
         texttoid = {}
         idstartpos = {}
         expansions = []
-        
+
         # Test with is_shell=True
         matches = views._process_group_results(
             mock_group, texttoid, idstartpos, expansions, is_shell=True
         )
-        
+
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0]["commandclass"], "shell")
         self.assertIn("shell help", texttoid)

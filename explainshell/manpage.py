@@ -1,4 +1,8 @@
-import os, subprocess, re, logging, collections
+import os
+import subprocess
+import re
+import logging
+import collections
 import urllib.parse
 
 from explainshell import config, store, errors
@@ -33,7 +37,7 @@ def extractname(gzname):
     return gzname.rsplit(".", 2)[0]
 
 
-def bold(l):
+def bold(line):
     """
     >>> bold('a')
     ([], ['a'])
@@ -45,19 +49,19 @@ def bold(l):
     (['first', 'second:'], [])
     """
     inside = []
-    inside.extend(m.span(0) for m in _section.finditer(l))
+    inside.extend(m.span(0) for m in _section.finditer(line))
     current = 0
     outside = []
     for start, end in inside:
         outside.append((current, start))
         current = end
-    outside.append((current, len(l)))
+    outside.append((current, len(line)))
 
-    inside = [l[s:e] for s, e in inside]
+    inside = [line[s:e] for s, e in inside]
     inside = [s.replace("<b>", "").replace("</b>", "") for s in inside]
 
-    outside = [l[s:e] for s, e in outside]
-    outside = [l for l in outside if l and not l.isspace()]
+    outside = [line[s:e] for s, e in outside]
+    outside = [line for line in outside if line and not line.isspace()]
     return inside, outside
 
 
@@ -129,53 +133,53 @@ def _parsetext(lines):
     paragraphlines = []
     section = None
     i = 0
-    for l in lines:
-        l = re.sub(
+    for line in lines:
+        line = re.sub(
             _href,
-            r'<a href="http://manpages.ubuntu.com/manpages/precise/en/man\2/\1.\2.html">',
-            l,
+            r'<a href="http://manpages.ubuntu.com/manpages/precise/en/'
+            r'man\2/\1.\2.html">',
+            line,
         )
         for lookfor, replacewith in _replacements:
-            l = re.sub(lookfor, replacewith, l)
+            line = re.sub(lookfor, replacewith, line)
         # confirm the line is valid utf8
         # Ensure valid UTF-8 by encoding/decoding safely in Python 3
-        if isinstance(l, bytes):
-            l_bytes = l
-        else:
-            l_bytes = l.encode('utf-8', 'ignore')
-        lreplaced = l_bytes.decode('utf-8', 'ignore').encode('utf-8')
-        if lreplaced != l_bytes:
-            logger.error('line %r contains invalid utf8', l)
-            l = lreplaced.decode('utf-8', 'ignore')
+        line_bytes = line if isinstance(line,
+                                        bytes) else line.encode('utf-8',
+                                                                'ignore')
+        linereplaced = line_bytes.decode('utf-8', 'ignore').encode('utf-8')
+        if linereplaced != line_bytes:
+            logger.error('line %r contains invalid utf8', line)
+            line = linereplaced.decode('utf-8', 'ignore')
             raise ValueError
-        if l.startswith('<b>'): # section
-            section = re.sub(_section, r'\1', l)
+        if line.startswith('<b>'):  # section
+            section = re.sub(_section, r'\1', line)
         else:
             foundsection = False
-            if l.strip().startswith("<b>"):
-                inside, outside = bold(l.strip())
+            if line.strip().startswith("<b>"):
+                inside, outside = bold(line.strip())
                 if not outside and inside[-1][-1] == ":":
                     foundsection = True
                     section = " ".join(inside)[:-1]
             if not foundsection:
-                if not l.strip() and paragraphlines:
+                if not line.strip() and paragraphlines:
                     yield store.paragraph(
                         i, "\n".join(paragraphlines), section, False
                     )
                     i += 1
                     paragraphlines = []
-                elif l.strip():
-                    paragraphlines.append(l)
+                elif line.strip():
+                    paragraphlines.append(line)
     if paragraphlines:
         yield store.paragraph(i, "\n".join(paragraphlines), section, False)
 
 
 def _parsesynopsis(base, synopsis):
     """
-    >>> _parsesynopsis('/a/b/c', '/a/b/c: "p-r+o++g - foo bar."
+    >>> _parsesynopsis('/a/b/c', '/a/b/c: "p-r+o++g - foo bar."')
     ('p-r+o++g', 'foo bar')
     """
-    synopsis = synopsis[len(base) + 3 : -1]
+    synopsis = synopsis[len(base) + 3: -1]
     if synopsis[-1] == ".":
         synopsis = synopsis[:-1]
     match = SPLITSYNOP.match(synopsis)
@@ -205,24 +209,30 @@ class manpage(object):
         self._text = None
 
     def read(self):
-        '''Read the content from a local manpage file and store it in usable formats
-        on the class instance.'''
-        cmd = [config.MAN2HTML, urllib.parse.urlencode({'local': os.path.abspath(self.path)})]
+        '''Read the content from a local manpage file and store it in usable
+        formats on the class instance.'''
+        cmd = [
+            config.MAN2HTML,
+            urllib.parse.urlencode({'local': os.path.abspath(self.path)})
+        ]
         logger.info('executing %r', ' '.join(cmd))
         self._text = subprocess.check_output(cmd, stderr=devnull, env=ENV)
         if isinstance(self._text, bytes):
             self._text = self._text.decode('utf-8', 'ignore')
         try:
-            syn = subprocess.check_output(['lexgrog', self.path], stderr=devnull)
-            if isinstance(syn, bytes):
-                syn = syn.decode('utf-8', 'ignore')
+            syn_bytes = subprocess.check_output(
+                ['lexgrog', self.path], stderr=devnull
+            )
+            syn = syn_bytes.decode('utf-8', 'ignore')
             self.synopsis = syn.rstrip()
         except subprocess.CalledProcessError:
             logger.error("failed to extract synopsis for %s", self.name)
 
     def parse(self):
         text_lines = (
-            [] if self._text is None else self._text.splitlines()[7:-3]
+            []
+            if self._text is None
+            else self._text.splitlines()[7:-3]
         )
         self.paragraphs = list(_parsetext(text_lines))
         if not self.paragraphs:
@@ -239,7 +249,8 @@ class manpage(object):
         if self.synopsis is None:
             return
         parsed_synopsis = [
-            _parsesynopsis(self.path, l) for l in self.synopsis.splitlines()
+            _parsesynopsis(self.path,
+                           line) for line in self.synopsis.splitlines()
         ]
 
         # figure out aliases from the synopsis
