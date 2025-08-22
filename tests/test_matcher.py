@@ -1,6 +1,6 @@
 import unittest
 
-from explainshell import matcher, errors, helpconstants
+from explainshell import matcher, errors
 from . import helpers
 
 s = helpers.mockstore()
@@ -107,7 +107,7 @@ class test_matcher(unittest.TestCase):
     def test_command_substitution_basic(self):
         """Test basic command substitution"""
         # Command substitution creates additional groups
-        groups = self.assertBasicMatch("bar $(echo test)", expected_groups=3)
+        self.assertBasicMatch("bar $(echo test)", expected_groups=3)
 
         # Should have expansions
         m = matcher.matcher("bar $(echo test)", s)

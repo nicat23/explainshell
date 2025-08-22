@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from explainshell import manager, store, errors
+from explainshell import manager, errors
 
 
 class TestManagerSimple(unittest.TestCase):
@@ -20,9 +20,9 @@ class TestManagerSimple(unittest.TestCase):
             mock_store_class.return_value = mock_store_instance
             mock_classifier_class.return_value = mock_classifier_instance
 
-            mgr = manager.manager("localhost", "testdb", ["test.1.gz"])
+            mgr = manager.manager("localhost", "testdb", {"test.1.gz"})
 
-            self.assertEqual(mgr.paths, ["test.1.gz"])
+            self.assertEqual(mgr.paths, {"test.1.gz"})
             self.assertFalse(mgr.overwrite)
             mock_classifier_instance.train.assert_called_once()
 
@@ -44,11 +44,11 @@ class TestManagerSimple(unittest.TestCase):
         """Test run with empty paths"""
         with patch(
             "explainshell.manager.store.store"
-        ) as mock_store_class, patch(
+        ), patch(
             "explainshell.manager.classifier.classifier"
-        ) as mock_classifier_class:
+        ):
 
-            mgr = manager.manager("localhost", "testdb", [])
+            mgr = manager.manager("localhost", "testdb", set())
             added, exists = mgr.run()
 
             self.assertEqual(added, [])
@@ -60,14 +60,14 @@ class TestManagerSimple(unittest.TestCase):
             "explainshell.manager.store.store"
         ) as mock_store_class, patch(
             "explainshell.manager.classifier.classifier"
-        ) as mock_classifier_class:
+        ):
 
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
             mock_store_instance.names.return_value = []
             mock_store_instance.mappings.return_value = []
 
-            mgr = manager.manager("localhost", "testdb", [])
+            mgr = manager.manager("localhost", "testdb", set())
             mappings, multicommands = mgr.findmulticommands()
 
             self.assertEqual(mappings, [])
@@ -79,7 +79,7 @@ class TestManagerSimple(unittest.TestCase):
             "explainshell.manager.store.store"
         ) as mock_store_class, patch(
             "explainshell.manager.classifier.classifier"
-        ) as mock_classifier_class:
+        ):
 
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
@@ -90,7 +90,7 @@ class TestManagerSimple(unittest.TestCase):
             ]
             mock_store_instance.mappings.return_value = []
 
-            mgr = manager.manager("localhost", "testdb", [])
+            mgr = manager.manager("localhost", "testdb", set())
             mappings, multicommands = mgr.findmulticommands()
 
             self.assertEqual(len(mappings), 1)
@@ -139,12 +139,12 @@ class TestManagerSimple(unittest.TestCase):
             "explainshell.manager.store.store"
         ) as mock_store_class, patch(
             "explainshell.manager.classifier.classifier"
-        ) as mock_classifier_class:
+        ):
 
             mock_store_instance = Mock()
             mock_store_class.return_value = mock_store_instance
 
-            manager.manager("localhost", "testdb", [], drop=True)
+            manager.manager("localhost", "testdb", set(), drop=True)
 
             mock_store_instance.drop.assert_called_once_with(True)
 
@@ -152,11 +152,11 @@ class TestManagerSimple(unittest.TestCase):
         """Test manager initialization with overwrite flag"""
         with patch(
             "explainshell.manager.store.store"
-        ) as mock_store_class, patch(
+        ), patch(
             "explainshell.manager.classifier.classifier"
-        ) as mock_classifier_class:
+        ):
 
-            mgr = manager.manager("localhost", "testdb", [], overwrite=True)
+            mgr = manager.manager("localhost", "testdb", set(), overwrite=True)
 
             self.assertTrue(mgr.overwrite)
 
@@ -164,15 +164,15 @@ class TestManagerSimple(unittest.TestCase):
         """Test run method handling EmptyManpage exception"""
         with patch(
             "explainshell.manager.store.store"
-        ) as mock_store_class, patch(
+        ), patch(
             "explainshell.manager.classifier.classifier"
-        ) as mock_classifier_class, patch(
+        ), patch(
             "explainshell.manager.manpage.manpage"
         ) as mock_manpage_class:
 
             mock_manpage_class.side_effect = errors.EmptyManpage("test.1.gz")
 
-            mgr = manager.manager("localhost", "testdb", ["test.1.gz"])
+            mgr = manager.manager("localhost", "testdb", {"test.1.gz"})
             added, exists = mgr.run()
 
             self.assertEqual(added, [])
@@ -182,15 +182,15 @@ class TestManagerSimple(unittest.TestCase):
         """Test run method handling KeyboardInterrupt"""
         with patch(
             "explainshell.manager.store.store"
-        ) as mock_store_class, patch(
+        ), patch(
             "explainshell.manager.classifier.classifier"
-        ) as mock_classifier_class, patch(
+        ), patch(
             "explainshell.manager.manpage.manpage"
         ) as mock_manpage_class:
 
             mock_manpage_class.side_effect = KeyboardInterrupt()
 
-            mgr = manager.manager("localhost", "testdb", ["test.1.gz"])
+            mgr = manager.manager("localhost", "testdb", {"test.1.gz"})
 
             with self.assertRaises(KeyboardInterrupt):
                 mgr.run()

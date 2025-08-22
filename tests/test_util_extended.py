@@ -35,6 +35,9 @@ class TestUtilExtended(unittest.TestCase):
         from explainshell.util import toposorted
 
         graph = [1, 2]
-        parents = lambda x: [2] if x == 1 else [1]  # Cyclic dependency
+
+        def parents(x):
+            return [2] if x == 1 else [1]  # Cyclic dependency
+
         with self.assertRaises(ValueError):
             toposorted(graph, parents)

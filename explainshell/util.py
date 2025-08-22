@@ -50,7 +50,8 @@ def groupcontinuous(lst, key=None):
     if key is None:
         key = _identity
     for k, g in itertools.groupby(
-        enumerate(lst), lambda i_x: i_x[0] - key(i_x[1])
+        enumerate(lst),
+        lambda i_x: i_x[0] - key(i_x[1])
     ):
         yield list(map(itemgetter(1), g))
 
@@ -91,8 +92,26 @@ def pairwise(iterable):
 class peekable(object):
     """
     >>> it = peekable(iter('abc'))
-    >>> (it.index, it.peek(), it.index, it.peek(), next(it), it.index, it.peek(), next(it), next(it), it.index)
-    (0, 'a', 0, 'a', 'a', 1, 'b', 'b', 'c', 3)
+    >>> it.index
+    0
+    >>> it.peek()
+    'a'
+    >>> it.index
+    0
+    >>> it.peek()
+    'a'
+    >>> next(it)
+    'a'
+    >>> it.index
+    1
+    >>> it.peek()
+    'b'
+    >>> next(it)
+    'b'
+    >>> next(it)
+    'c'
+    >>> it.index
+    3
     >>> it.peek()
     Traceback (most recent call last):
       ...

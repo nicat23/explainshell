@@ -23,6 +23,6 @@ pytest-mock==3.14.0
 # Code Quality
 flake8==7.1.1
 black==25.1.0
-
+autopep8==2.3.2
 # Environment Management
 #python-dotenv==1.0.1

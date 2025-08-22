@@ -2,11 +2,10 @@ import unittest
 from unittest.mock import Mock, patch
 import sys
 import os
+from explainshell import options, store
 
 # Add the parent directory to the path to import explainshell modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
-from explainshell import options, store
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 class TestExtractedOption(unittest.TestCase):
@@ -35,7 +34,7 @@ class TestExtractedOption(unittest.TestCase):
         opt1 = options.extractedoption("-v", "LEVEL")
         opt2 = options.extractedoption("-v", "LEVEL")
         opt3 = options.extractedoption("-a", "LEVEL")
-        
+
         self.assertEqual(opt1, opt2)
         self.assertNotEqual(opt1, opt3)
 
@@ -47,12 +46,12 @@ class TestExtractedOption(unittest.TestCase):
     def test_extractedoption_namedtuple_properties(self):
         """Test extractedoption namedtuple properties"""
         opt = options.extractedoption("-f", "FILE")
-        
+
         # Test tuple unpacking
         flag, expectsarg = opt
         self.assertEqual(flag, "-f")
         self.assertEqual(expectsarg, "FILE")
-        
+
         # Test indexing
         self.assertEqual(opt[0], "-f")
         self.assertEqual(opt[1], "FILE")
@@ -63,66 +62,64 @@ class TestOptionFunction(unittest.TestCase):
 
     def test_option_basic_short(self):
         """Test _option with basic short option"""
-        match = options._option("-a")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "-a")
+        match = self._extracted_from_test_option_hash_flag_3("-a", "opt", "-a")
+        assert match is not None
         self.assertIsNone(match.group("arg"))
 
     def test_option_basic_long(self):
         """Test _option with basic long option"""
-        match = options._option("--verbose")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "--verbose")
+        match = self._extracted_from_test_option_hash_flag_3(
+            "--verbose", "opt", "--verbose"
+        )
+        assert match is not None
         self.assertIsNone(match.group("arg"))
 
     def test_option_with_arg_brackets(self):
         """Test _option with argument in brackets"""
-        match = options._option("-a[foo]")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "-a")
-        self.assertEqual(match.group("arg"), "foo")
-        self.assertEqual(match.group("argoptional"), "[")
-        self.assertEqual(match.group("argoptionalc"), "]")
+        self._extracted_from_test_option_with_arg_angle_brackets_3("-a[foo]",
+                                                                   "[",
+                                                                   "]")
 
     def test_option_with_arg_angle_brackets(self):
         """Test _option with argument in angle brackets"""
-        match = options._option("-a<foo>")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "-a")
+        self._extracted_from_test_option_with_arg_angle_brackets_3("-a<foo>",
+                                                                   "<",
+                                                                   ">")
+
+    def _extracted_from_test_option_with_arg_angle_brackets_3(self,
+                                                              arg0,
+                                                              arg1,
+                                                              arg2):
+        match = self._extracted_from_test_option_hash_flag_3(arg0, "opt", "-a")
+        assert match is not None
         self.assertEqual(match.group("arg"), "foo")
-        self.assertEqual(match.group("argoptional"), "<")
-        self.assertEqual(match.group("argoptionalc"), ">")
+        self.assertEqual(match.group("argoptional"), arg1)
+        self.assertEqual(match.group("argoptionalc"), arg2)
 
     def test_option_with_equals_arg(self):
         """Test _option with equals argument"""
-        match = options._option("-a=foo")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "-a")
+        match = self._extracted_from_test_option_hash_flag_3("-a=foo",
+                                                             "opt",
+                                                             "-a")
+        assert match is not None
         self.assertEqual(match.group("arg"), "foo")
         self.assertIsNone(match.group("argoptional"))
-
-    def test_option_with_space_arg(self):
-        """Test _option with space-separated argument"""
-        match = options._option("-a FOO")  # Only uppercase letters allowed for space args
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "-a")
-        self.assertEqual(match.group("arg"), "FOO")
 
     def test_option_invalid_cases(self):
         """Test _option with invalid cases"""
         # Single dash
         self.assertIsNone(options._option("-"))
-        
+
         # Double dash only
         self.assertIsNone(options._option("--"))
-        
+
         # Triple dash
         self.assertIsNone(options._option("---"))
-        
+
         # Ending with dash
         self.assertIsNone(options._option("-a-"))
         self.assertIsNone(options._option("--a-"))
-        
+
         # Mismatched brackets
         self.assertIsNone(options._option("-a[foo>"))
         self.assertIsNone(options._option("-a<foo]"))
@@ -132,29 +129,40 @@ class TestOptionFunction(unittest.TestCase):
         text = "prefix -a suffix"
         match = options._option(text, 7)
         self.assertIsNotNone(match)
+        assert match is not None
         self.assertEqual(match.group("opt"), "-a")
+
+    def test_option_with_space_arg(self):
+        """Test _option with space-separated argument"""
+        match = self._extracted_from_test_option_hash_flag_3("-a FOO",
+                                                             "opt",
+                                                             "-a")
+        assert match is not None
+        self.assertEqual(match.group("arg"), "FOO")
 
     def test_option_complex_args(self):
         """Test _option with complex arguments"""
-        match = options._option("-a=<foo bar>")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("arg"), "foo bar")
-        
-        match = options._option("--file=[path/to/file]")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("arg"), "path/to/file")
+        self._extracted_from_test_option_hash_flag_3(
+            "-a=<foo bar>", "arg", "foo bar"
+        )
+        self._extracted_from_test_option_hash_flag_3(
+            "--file=[path/to/file]", "arg", "path/to/file"
+        )
 
     def test_option_help_flag(self):
         """Test _option with help flag"""
-        match = options._option("-?")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "-?")
+        self._extracted_from_test_option_hash_flag_3("-?", "opt", "-?")
 
     def test_option_hash_flag(self):
         """Test _option with hash flag"""
-        match = options._option("-#")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "-#")
+        self._extracted_from_test_option_hash_flag_3("-#", "opt", "-#")
+
+    def _extracted_from_test_option_hash_flag_3(self, arg0, arg1, arg2):
+        result = options._option(arg0)
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result.group(arg1), arg2)
+        return result
 
 
 class TestFlagFunction(unittest.TestCase):
@@ -163,9 +171,7 @@ class TestFlagFunction(unittest.TestCase):
     def test_flag_basic(self):
         """Test _flag with basic flag"""
         match = options._flag("bs=1024")
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "bs")
-        self.assertEqual(match.group("arg"), "1024")
+        self._extracted_from_test_flag_complex_args_4(match, "bs", "1024")
 
     def test_flag_no_arg(self):
         """Test _flag without argument"""
@@ -177,7 +183,7 @@ class TestFlagFunction(unittest.TestCase):
         """Test _flag with invalid cases"""
         # Starts with dash
         self.assertIsNone(options._flag("-verbose"))
-        
+
         # Contains dashes
         self.assertIsNone(options._flag("foo-bar"))
 
@@ -185,16 +191,17 @@ class TestFlagFunction(unittest.TestCase):
         """Test _flag with position parameter"""
         text = "prefix bs=1024 suffix"
         match = options._flag(text, 7)
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "bs")
-        self.assertEqual(match.group("arg"), "1024")
+        self._extracted_from_test_flag_complex_args_4(match, "bs", "1024")
 
     def test_flag_complex_args(self):
         """Test _flag with complex arguments"""
         match = options._flag("count=100")
+        self._extracted_from_test_flag_complex_args_4(match, "count", "100")
+
+    def _extracted_from_test_flag_complex_args_4(self, match, arg1, arg2):
         self.assertIsNotNone(match)
-        self.assertEqual(match.group("opt"), "count")
-        self.assertEqual(match.group("arg"), "100")
+        self.assertEqual(match.group("opt"), arg1)
+        self.assertEqual(match.group("arg"), arg2)
 
 
 class TestEatBetween(unittest.TestCase):
@@ -224,10 +231,10 @@ class TestEatBetween(unittest.TestCase):
         """Test _eatbetween with spaces around separators"""
         result = options._eatbetween("a , b", 1)
         self.assertEqual(result, 4)
-        
+
         result = options._eatbetween("a | b", 1)
         self.assertEqual(result, 4)
-        
+
         result = options._eatbetween("a  or  b", 1)
         self.assertEqual(result, 7)
 
@@ -268,12 +275,14 @@ class TestExtractOption(unittest.TestCase):
     def test_extract_option_with_args(self):
         """Test extract_option with arguments"""
         short, long = options.extract_option("-f FILE, --output=FILE")
-        self.assertEqual(len(short), 1)
-        self.assertEqual(short[0].flag, "-f")
-        self.assertEqual(short[0].expectsarg, "FILE")
-        self.assertEqual(len(long), 1)
-        self.assertEqual(long[0].flag, "--output")
-        self.assertEqual(long[0].expectsarg, "FILE")
+        self._extracted_from_test_extract_option_with_args_4(short, "-f")
+        self._extracted_from_test_extract_option_with_args_4(long, "--output")
+
+    # TODO Rename this here and in `test_extract_option_with_args`
+    def _extracted_from_test_extract_option_with_args_4(self, arg0, arg1):
+        self.assertEqual(len(arg0), 1)
+        self.assertEqual(arg0[0].flag, arg1)
+        self.assertEqual(arg0[0].expectsarg, "FILE")
 
     def test_extract_option_pipe_separator(self):
         """Test extract_option with pipe separator"""
@@ -359,37 +368,49 @@ class TestExtract(unittest.TestCase):
 
     def test_extract_basic(self):
         """Test extract function with basic paragraphs"""
-        p1 = store.paragraph(0, "-v, --verbose enable verbose output", "OPTIONS", True)
-        p2 = store.paragraph(1, "This is just description", "DESCRIPTION", False)
-        p3 = store.paragraph(2, "-f FILE, --file=FILE specify file", "OPTIONS", True)
-        
-        manpage = store.manpage("test.1.gz", "test", "test synopsis", [p1, p2, p3], [])
-        
+        p1 = store.paragraph(0, "-v, --verbose enable verbose output",
+                             "OPTIONS", True)
+        p2 = store.paragraph(1, "This is just description",
+                             "DESCRIPTION", False)
+        p3 = store.paragraph(2, "-f FILE, --file=FILE specify file",
+                             "OPTIONS", True)
+
+        manpage = store.manpage("test.1.gz", "test", "test synopsis",
+                                [p1, p2, p3], [])
+
         options.extract(manpage)
-        
+
         # Check that options were extracted
         extracted_options = manpage.options
         self.assertEqual(len(extracted_options), 2)
-        
-        # Check first option
-        opt1 = extracted_options[0]
-        self.assertEqual(opt1.short, ["-v"])
-        self.assertEqual(opt1.long, ["--verbose"])
+
+        opt1 = self._extracted_from_test_extract_basic_16(
+            extracted_options, 0, "-v", "--verbose"
+        )
         self.assertFalse(opt1.expectsarg)
-        
-        # Check second option
-        opt2 = extracted_options[1]
-        self.assertEqual(opt2.short, ["-f"])
-        self.assertEqual(opt2.long, ["--file"])
+
+        opt2 = self._extracted_from_test_extract_basic_16(
+            extracted_options, 1, "-f", "--file"
+        )
         self.assertTrue(opt2.expectsarg)
+
+    # TODO Rename this here and in `test_extract_basic`
+    def _extracted_from_test_extract_basic_16(
+        self, extracted_options, arg1, arg2, arg3
+    ):
+        # Check first option
+        result = extracted_options[arg1]
+        self.assertEqual(result.short, [arg2])
+        self.assertEqual(result.long, [arg3])
+        return result
 
     def test_extract_no_options_found(self):
         """Test extract function when no options can be extracted"""
         p1 = store.paragraph(0, "invalid option format", "OPTIONS", True)
-        
+
         manpage = store.manpage("test.1.gz", "test", "test synopsis", [p1], [])
-        
-        with patch('explainshell.options.logger') as mock_logger:
+
+        with patch("explainshell.options.logger") as mock_logger:
             options.extract(manpage)
             mock_logger.error.assert_called_once()
 
@@ -399,58 +420,68 @@ class TestExtract(unittest.TestCase):
         p2 = store.paragraph(1, "Description paragraph", "DESCRIPTION", False)
         p3 = store.paragraph(2, "--verbose detailed option", "OPTIONS", True)
         p4 = store.paragraph(3, "Another description", "DESCRIPTION", False)
-        
-        manpage = store.manpage("test.1.gz", "test", "test synopsis", [p1, p2, p3, p4], [])
-        
+
+        manpage = store.manpage(
+            "test.1.gz", "test", "test synopsis", [p1, p2, p3, p4], []
+        )
+
         options.extract(manpage)
-        
+
         # Only option paragraphs should be converted
         extracted_options = manpage.options
         self.assertEqual(len(extracted_options), 2)
-        
+
         # Non-option paragraphs should remain as regular paragraphs
-        regular_paragraphs = [p for p in manpage.paragraphs if not isinstance(p, store.option)]
+        regular_paragraphs = [
+            p for p in manpage.paragraphs if not isinstance(p, store.option)
+        ]
         self.assertEqual(len(regular_paragraphs), 2)
 
     def test_extract_with_expectsarg(self):
         """Test extract function with options that expect arguments"""
         p1 = store.paragraph(0, "-f FILE, -o OUTPUT", "OPTIONS", True)
         p2 = store.paragraph(1, "-v, --verbose", "OPTIONS", True)
-        
-        manpage = store.manpage("test.1.gz", "test", "test synopsis", [p1, p2], [])
-        
+
+        manpage = store.manpage("test.1.gz",
+                                "test",
+                                "test synopsis",
+                                [p1, p2],
+                                [])
+
         options.extract(manpage)
-        
+
         extracted_options = manpage.options
         self.assertEqual(len(extracted_options), 2)
-        
+
         # First option should expect arguments
         self.assertTrue(extracted_options[0].expectsarg)
-        
+
         # Second option should not expect arguments
         self.assertFalse(extracted_options[1].expectsarg)
 
     def test_extract_empty_manpage(self):
         """Test extract function with empty manpage"""
         manpage = store.manpage("test.1.gz", "test", "test synopsis", [], [])
-        
+
         options.extract(manpage)
-        
+
         # Should not crash with empty paragraphs
         self.assertEqual(len(manpage.paragraphs), 0)
 
     def test_extract_cleantext_integration(self):
         """Test extract function integration with cleantext"""
         # Create paragraph with HTML tags
-        p1 = store.paragraph(0, "<b>-v</b>, <i>--verbose</i> enable verbose", "OPTIONS", True)
-        
+        p1 = store.paragraph(
+            0, "<b>-v</b>, <i>--verbose</i> enable verbose", "OPTIONS", True
+        )
+
         manpage = store.manpage("test.1.gz", "test", "test synopsis", [p1], [])
-        
+
         options.extract(manpage)
-        
+
         extracted_options = manpage.options
         self.assertEqual(len(extracted_options), 1)
-        
+
         opt = extracted_options[0]
         self.assertEqual(opt.short, ["-v"])
         self.assertEqual(opt.long, ["--verbose"])
@@ -490,9 +521,9 @@ class TestOptionsEdgeCases(unittest.TestCase):
         p1 = Mock()
         p1.is_option = True
         p1.cleantext.return_value = None
-        
+
         manpage = store.manpage("test.1.gz", "test", "test synopsis", [p1], [])
-        
+
         # Should raise TypeError when trying to process None
         with self.assertRaises(TypeError):
             options.extract(manpage)
@@ -503,7 +534,7 @@ class TestOptionsEdgeCases(unittest.TestCase):
         self.assertEqual(token.startpos, 0)
         self.assertEqual(token.endpos, 5)
         self.assertEqual(token.token, "-v")
-        
+
         # Test tuple unpacking
         start, end, tok = token
         self.assertEqual(start, 0)
@@ -516,15 +547,13 @@ class TestOptionsPerformance(unittest.TestCase):
 
     def test_extract_option_many_options(self):
         """Test extract_option performance with many options"""
-        # Create text with many options
-        options_text = ", ".join([f"-{chr(97+i)}" for i in range(26)])  # -a through -z
-        options_text += " description"
-        
+        options_text = ", ".join([f"-{chr(97+i)}" for i in range(
+            26)]) + " description"
         short, long = options.extract_option(options_text)
-        
+
         self.assertEqual(len(short), 26)
         self.assertEqual(len(long), 0)
-        
+
         # Verify all options were extracted
         expected_flags = [f"-{chr(97+i)}" for i in range(26)]
         actual_flags = [opt.flag for opt in short]
@@ -532,18 +561,22 @@ class TestOptionsPerformance(unittest.TestCase):
 
     def test_extract_many_paragraphs(self):
         """Test extract function with many paragraphs"""
-        paragraphs = []
-        for i in range(100):
-            if i % 2 == 0:  # Every other paragraph is an option
-                p = store.paragraph(i, f"-{chr(97 + (i % 26))} option {i}", "OPTIONS", True)
-            else:
-                p = store.paragraph(i, f"Description {i}", "DESCRIPTION", False)
-            paragraphs.append(p)
-        
-        manpage = store.manpage("test.1.gz", "test", "test synopsis", paragraphs, [])
-        
+        paragraphs = [
+            store.paragraph(
+                i, f"-{chr(97 + (i % 26))} option {i}", "OPTIONS", True
+            ) if i % 2 == 0 else store.paragraph(
+                i, f"Description {i}", "DESCRIPTION", False
+            ) for i in range(100)
+        ]
+
+        manpage = store.manpage("test.1.gz",
+                                "test",
+                                "test synopsis",
+                                paragraphs,
+                                [])
+
         options.extract(manpage)
-        
+
         # Should extract 50 options
         extracted_options = manpage.options
         self.assertEqual(len(extracted_options), 50)
