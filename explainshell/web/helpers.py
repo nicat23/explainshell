@@ -1,4 +1,4 @@
-'''from explainshell import util'''
+from explainshell import util
 
 
 def convertparagraphs(manpage):
